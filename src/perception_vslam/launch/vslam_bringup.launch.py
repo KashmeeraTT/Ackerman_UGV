@@ -29,8 +29,8 @@ def generate_launch_description():
             executable='static_transform_publisher',
             name='static_cam_tf',
             # Apply optical rotation: yaw=-90, pitch=0, roll=-90
-            # x=0.25, y=0.0, z=0.10
-            arguments=['0.25', '0.0', '0.10', '-1.5707', '0.0', '-1.5707',
+            # x=0.45 (front), y=0.0, z=1.5 (height)
+            arguments=['0.45', '0.0', '1.5', '-1.5707', '0.0', '-1.5707',
                        'base_link', 'camera_link']
         ),
 

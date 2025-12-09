@@ -5,7 +5,7 @@
   <link name="base_link">
     <visual>
       <geometry>
-        <box size="0.5 0.3 0.1"/>
+        <box size="1.0 1.0 0.5"/>
       </geometry>
       <material name="blue">
         <color rgba="0 0 0.8 1"/>
@@ -14,7 +14,7 @@
   </link>
 
   <!-- Camera Link (Generic mounting) -->
-  <!-- Assuming camera is mounted 10cm above center, looking forward -->
+  <!-- Assuming camera is mounted 1.5m above center, looking forward -->
   <link name="camera_link">
     <visual>
       <geometry>
@@ -29,7 +29,7 @@
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.1 0 0.1" rpy="0 0 0"/>
+    <origin xyz="0.45 0 1.5" rpy="0 0 0"/>
   </joint>
 
   <!-- Lidar Link (Example) -->
