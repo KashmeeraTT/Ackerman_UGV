@@ -24,25 +24,19 @@ def generate_launch_description():
         ),
 
         # Static TF base_link -> camera_link
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_cam_tf',
-            # Apply optical rotation: yaw=-90, pitch=0, roll=-90
-            # x=0.45 (front), y=0.0, z=1.5 (height)
-            arguments=['0.45', '0.0', '1.5', '-1.5707', '0.0', '-1.5707',
-                       'base_link', 'camera_link']
-        ),
+        # Static TF base_link -> camera_link REMOVED (Handled by URDF)
 
         # Static TF map -> odom (Identity)
         # Required because slam_odom_bridge generally bridges odom->base_link
         # and we need to link map->odom for Nav2 global costmap in map frame.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_map_odom_tf',
-            arguments=['0','0','0','0','0','0','map','odom']
-        ),
+        # Static TF map -> odom
+        # REMOVED: Managed by slam_toolbox
+        # Node(
+        #     package='tf2_ros',
+        #     executable='static_transform_publisher',
+        #     name='static_map_odom_tf',
+        #     arguments=['0','0','0','0','0','0','map','odom']
+        # ),
 
         # ORB-SLAM3
         Node(
@@ -65,5 +59,12 @@ def generate_launch_description():
             name='slam_odom_bridge',
             output='screen',
             parameters=[bridge_params],
+        ),
+
+        # NEW: Mapping Pipeline (Pointcloud->Laser + SLAM Toolbox)
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(vslam_share, 'launch', 'mapping.launch.py')
+            )
         ),
     ])

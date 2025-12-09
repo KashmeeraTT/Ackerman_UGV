@@ -12,6 +12,6 @@ def generate_launch_description():
         'params.yaml'
     )
     return LaunchDescription([
-        Node(package='ackermann_bridge_demo', executable='twist_to_ackermann.py',
+        Node(package='ackermann_bridge_demo', executable='twist_to_ackermann',
              name='twist_to_ack', output='screen', parameters=[params])
     ])

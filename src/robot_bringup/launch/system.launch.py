@@ -23,6 +23,12 @@ def generate_launch_description():
         default_value='true',
         description='Whether to start RViz'
     )
+
+    declare_serial_port = DeclareLaunchArgument(
+        'serial_port',
+        default_value='/dev/ttyUSB0',
+        description='Serial port for micro-ROS agent'
+    )
     
     rviz_config_file = PathJoinSubstitution(
         [pkg_robot_bringup, 'rviz', 'robot.rviz']
@@ -40,12 +46,20 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_desc}]
     )
 
+    # Joint State Publisher (Publishes default 0 state for non-fixed joints)
+    jsp_node = Node(
+        package='robot_bringup',
+        executable='dummy_joint_publisher.py',
+        name='joint_state_publisher',
+        output='screen'
+    )
+
     # Motor Driver Placeholder
     # We run this from the source or installed script.
     # Since it's a script in an ament_cmake package, we assume it's installed to lib/robot_bringup
     # or just run as a process if we install it as a program.
     # micro-ROS Agent (Low-level Driver)
-    serial_port = LaunchConfiguration('serial_port', default='/dev/ttyUSB0')
+    serial_port = LaunchConfiguration('serial_port')
 
     micro_ros_agent = ExecuteProcess(
         cmd=[
@@ -71,6 +85,15 @@ def generate_launch_description():
         )
     )
 
+    # Ackermann Bridge
+    pkg_ackermann_bridge = get_package_share_directory('ackermann_bridge_demo')
+    ackermann_bridge_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_ackermann_bridge, 'launch', 'bridge.launch.py')
+        )
+    )
+
+
     # RViz
     rviz_node = Node(
         package='rviz2',
@@ -83,9 +106,12 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_rviz,
+        declare_serial_port,
         rsp_node,
+        jsp_node,
         vslam_launch,
         nav2_launch,
+        ackermann_bridge_launch,
         micro_ros_agent,
         rviz_node
     ])

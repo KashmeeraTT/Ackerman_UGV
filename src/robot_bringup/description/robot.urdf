@@ -1,53 +1,193 @@
 <?xml version="1.0"?>
-<robot name="robot_name">
+<robot name="ackermann_robot">
+
+  <!-- Materials -->
+  <material name="blue">
+    <color rgba="0 0 0.8 1"/>
+  </material>
+  <material name="black">
+    <color rgba="0 0 0 1"/>
+  </material>
+  <material name="red">
+    <color rgba="1 0 0 1"/>
+  </material>
+  <material name="grey">
+    <color rgba="0.5 0.5 0.5 1"/>
+  </material>
 
   <!-- Base Link -->
   <link name="base_link">
     <visual>
       <geometry>
-        <box size="1.0 1.0 0.5"/>
+        <box size="1.0 0.6 0.3"/>
       </geometry>
-      <material name="blue">
-        <color rgba="0 0 0.8 1"/>
-      </material>
+      <material name="blue"/>
+      <origin xyz="0 0 0.15"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="1.0 0.6 0.3"/>
+      </geometry>
+      <origin xyz="0 0 0.15"/>
+    </collision>
+  </link>
+
+  <!-- Base Footprint (Projection on ground) -->
+  <link name="base_footprint"/>
+  <joint name="base_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Dimensions
+       Wheelbase: 0.85m -> Front/Rear axles at +/- 0.425m
+       Track Width: ~0.7m -> Wheels at +/- 0.35m
+       Wheel Radius: 0.15m
+       Wheel Width: 0.1m
+  -->
+
+  <!-- REAR LEFT WHEEL (Driving) -->
+  <link name="rear_left_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.15"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="1.57079632679 0 0"/>
     </visual>
   </link>
 
-  <!-- Camera Link (Generic mounting) -->
-  <!-- Assuming camera is mounted 1.5m above center, looking forward -->
+  <joint name="rear_left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_left_wheel"/>
+    <origin xyz="-0.425 0.35 0.15" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- REAR RIGHT WHEEL (Driving) -->
+  <link name="rear_right_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.15"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+  </link>
+
+  <joint name="rear_right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_right_wheel"/>
+    <origin xyz="-0.425 -0.35 0.15" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+
+  <!-- FRONT LEFT STEERING (Steering Link + Wheel) -->
+  <link name="front_left_steering_link">
+    <visual>
+       <geometry>
+         <cylinder length="0.05" radius="0.05"/>
+       </geometry>
+       <material name="grey"/>
+    </visual>
+  </link>
+
+  <joint name="front_left_steering_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_left_steering_link"/>
+    <origin xyz="0.425 0.35 0.15" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
+  </joint>
+
+  <link name="front_left_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.15"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+  </link>
+
+  <joint name="front_left_wheel_joint" type="continuous">
+    <parent link="front_left_steering_link"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+
+  <!-- FRONT RIGHT STEERING (Steering Link + Wheel) -->
+  <link name="front_right_steering_link">
+    <visual>
+       <geometry>
+         <cylinder length="0.05" radius="0.05"/>
+       </geometry>
+       <material name="grey"/>
+    </visual>
+  </link>
+
+  <joint name="front_right_steering_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_right_steering_link"/>
+    <origin xyz="0.425 -0.35 0.15" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
+  </joint>
+
+  <link name="front_right_wheel">
+    <visual>
+      <geometry>
+        <cylinder length="0.1" radius="0.15"/>
+      </geometry>
+      <material name="black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+  </link>
+
+  <joint name="front_right_wheel_joint" type="continuous">
+    <parent link="front_right_steering_link"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+
+  <!-- Camera Link -->
+  <!-- Mounted on top of the chassis at the front -->
   <link name="camera_link">
     <visual>
       <geometry>
         <box size="0.05 0.15 0.05"/>
       </geometry>
-      <material name="black">
-        <color rgba="0 0 0 1"/>
-      </material>
+      <material name="black"/>
     </visual>
   </link>
 
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.45 0 1.5" rpy="0 0 0"/>
+    <!-- Chassis is 0.3 high (z=0 to 0.3). Mount camera on top at x=0.45 -->
+    <origin xyz="0.45 0 0.325" rpy="0 0 0"/>
   </joint>
 
-  <!-- Lidar Link (Example) -->
+  <!-- Lidar Link -->
   <link name="lidar_link">
        <visual>
       <geometry>
-        <cylinder length="0.05" radius="0.03"/>
+        <cylinder length="0.05" radius="0.05"/>
       </geometry>
-       <material name="red">
-        <color rgba="1 0 0 1"/>
-      </material>
+       <material name="red"/>
     </visual>
   </link>
   
   <joint name="base_to_lidar" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
-    <origin xyz="0 0 0.2" rpy="0 0 0"/>
+    <origin xyz="0.2 0 0.325" rpy="0 0 0"/>
   </joint>
 
 </robot>

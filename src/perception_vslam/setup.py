@@ -11,7 +11,7 @@ setup(
          ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch',
-         ['launch/vslam_bringup.launch.py']),
+         ['launch/vslam_bringup.launch.py', 'launch/mapping.launch.py']),
         ('share/' + package_name + '/config/camera',
          ['config/camera/gemini_2l.yaml']),
         ('share/' + package_name + '/config/slam',
