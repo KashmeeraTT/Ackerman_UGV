@@ -1,0 +1,73 @@
+%YAML:1.0
+
+# --------------------------------------------------------------------------------------------
+# Camera Parameters
+# --------------------------------------------------------------------------------------------
+
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+# Camera calibration and distortion parameters
+# (from ROS ost.yaml)
+
+Camera1.fx: 605.35158
+Camera1.fy: 607.51181
+Camera1.cx: 635.38455
+Camera1.cy: 391.59409
+
+# distortion parameters (plumb_bob: k1, k2, p1, p2, k3)
+
+Camera1.k1: -0.022606
+Camera1.k2: 0.016205
+Camera1.p1: 0.000696
+Camera1.p2: -0.001236
+Camera1.k3: 0.0
+
+# Camera resolution
+
+Camera.width: 1280
+Camera.height: 800
+
+# Camera frames per second  (adjust if needed)
+
+Camera.fps: 40
+
+# Color order of the images (0: BGR, 1: RGB)
+
+Camera.RGB: 1
+
+# Stereo/Depth parameters (for monocular you can ignore / leave defaults)
+
+Stereo.ThDepth: 40.0
+Stereo.b: 0.10
+
+# Depth map scale (for RGB-D setups; unused for pure monocular)
+
+RGBD.DepthMapFactor: 1000.0
+
+# --------------------------------------------------------------------------------------------
+# ORB Parameters
+# (these are generic; tune if needed for your setup)
+# --------------------------------------------------------------------------------------------
+
+ORBextractor.nFeatures: 800
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 6
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+# --------------------------------------------------------------------------------------------
+# Viewer Parameters
+# --------------------------------------------------------------------------------------------
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -3.5
+Viewer.ViewpointF: 500.0
