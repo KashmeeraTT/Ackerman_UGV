@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<robot name="robot_name">
+
+  <!-- Base Link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.5 0.3 0.1"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 0.8 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Camera Link (Generic mounting) -->
+  <!-- Assuming camera is mounted 10cm above center, looking forward -->
+  <link name="camera_link">
+    <visual>
+      <geometry>
+        <box size="0.05 0.15 0.05"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0 0 0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="base_to_camera" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0.1 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Lidar Link (Example) -->
+  <link name="lidar_link">
+       <visual>
+      <geometry>
+        <cylinder length="0.05" radius="0.03"/>
+      </geometry>
+       <material name="red">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="base_to_lidar" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0 0 0.2" rpy="0 0 0"/>
+  </joint>
+
+</robot>

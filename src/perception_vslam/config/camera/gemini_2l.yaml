@@ -1,0 +1,7 @@
+camera_name: gemini_2l
+color_fps: 30
+depth_fps: 30
+align_depth_to_color: true
+enable_point_cloud: true
+depth_unit_scale: 0.001
+
