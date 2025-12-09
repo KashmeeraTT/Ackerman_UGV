@@ -2,7 +2,43 @@
 
 This workspace contains the complete software stack for a mobile robot using **Orbbec Gemini 2L** for Visual SLAM and **Nav2** for autonomous navigation.
 
-## 1. System Architecture
+
+## 1. Environment Setup
+
+### Prerequisites
+- **Ubuntu 22.04 LTS**
+- **ROS 2 Humble Hawksbill** ([Installation Guide](https://docs.ros.org/en/humble/Installation.html))
+
+### Installation
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/KashmeeraTT/Ackerman_UGV.git robot_ws
+   cd robot_ws
+   ```
+
+2. **Install Dependencies**
+   We use `rosdep` to install system dependencies.
+   ```bash
+   rosdep install --from-paths src --ignore-src -r -y
+   ```
+
+3. **Install Build Tools (if not present)**
+   ```bash
+   sudo apt install python3-colcon-common-extensions
+   ```
+
+## 2. Build Instructions
+
+Build the entire workspace using `colcon`.
+
+```bash
+colcon build --symlink-install
+```
+
+*Note: If you encounter symlink errors (common with some filesystems), try `colcon build` without the `--symlink-install` flag, or clean the build folder with `rm -rf build install log` and retry.*
+
+## 3. System Architecture
 
 The system uses ORB-SLAM3 for localization (generating Odometry) and Nav2 for path planning and control.
 
@@ -35,37 +71,42 @@ graph TD
 - **Pangolin** (for ORB-SLAM3)
 - **OpenCV**
 
-## 4. How to Run
+## 5. How to Run
+
+### Source the Workspace
+Before running any command, always source the install setup:
+```bash
+source install/setup.bash
+```
 
 ### Quick Start (All-in-One)
-If configured, you can launch the entire system with:
+Launch the entire system including VSLAM, Navigation, and RViz:
 ```bash
 ros2 launch robot_bringup system.launch.py
 ```
-*Note: This now launches RViz by default. To disable it, add `use_rviz:=false`.*
+*Note: To disable auto-launch of RViz, use: `ros2 launch robot_bringup system.launch.py use_rviz:=false`*
 
 ### Manual Start (Component-wise)
-For better debugging, run components in separate terminals:
+For debugging or running specific parts:
 
-**1. VSLAM & Camera**
+**1. VSLAM & Camera only**
 ```bash
 ros2 launch perception_vslam vslam_bringup.launch.py
 ```
-*Verify: Check `/odom` topic and `map` -> `odom` -> `base_link` TF tree.*
 
-**2. Navigation**
+**2. Navigation only**
 ```bash
 ros2 launch nav2_bringup_ack nav2_bringup.launch.py
 ```
 
 **3. Visualization**
-RViz is launched automatically with `system.launch.py`.
-If you want to run it manually:
 ```bash
-ros2 run rviz2 rviz2 -d $(ros2 pkg prefix robot_bringup)/share/robot_bringup/rviz/robot.rviz
+ros2 launch robot_bringup rviz.launch.py
+# OR manually:
+ros2 run rviz2 rviz2 -d src/robot_bringup/rviz/robot.rviz
 ```
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 - **No Map**: Ensure SLAM is tracking (check debug window if enabled).
 - **TF Error**: Verify `static_transform_publisher` is running for camera link.
 - **Robot Stalls**: Check `cmd_vel` output and safety limits in `nav2_params.yaml`.
