@@ -62,9 +62,9 @@ controller_server:
       desired_linear_vel: 0.4
       max_linear_accel: 1.0
       max_angular_accel: 2.0
-      min_lookahead_dist: 0.4
+      min_lookahead_dist: 0.6
       max_lookahead_dist: 1.5
-      lookahead_time: 2.0
+      lookahead_time: 1.5
       rotate_to_heading_angular_vel: 0.0 # Disable rotate in place
       transform_tolerance: 2.0
       use_collision_detection: true
@@ -99,15 +99,17 @@ local_costmap:
 
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        observation_sources: pointcloud
-        pointcloud:
-          topic: /camera/depth/points
-          data_type: PointCloud2
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
           marking: true
           clearing: true
-          min_obstacle_height: 0.05
+          min_obstacle_height: 0.0
           max_obstacle_height: 2.0
-          min_obstacle_distance: 0.25
+          clearing_max_height: 2.0
+          obstacle_max_range: 3.5
+          raytrace_max_range: 4.0
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
@@ -133,15 +135,17 @@ global_costmap:
 
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
-        observation_sources: pointcloud
-        pointcloud:
-          topic: /camera/depth/points
-          data_type: PointCloud2
+        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: "LaserScan"
           marking: true
           clearing: true
-          min_obstacle_height: 0.05
+          min_obstacle_height: 0.0
           max_obstacle_height: 2.0
-          min_obstacle_distance: 0.25
+          clearing_max_height: 2.0
+          obstacle_max_range: 3.5
+          raytrace_max_range: 4.0
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
