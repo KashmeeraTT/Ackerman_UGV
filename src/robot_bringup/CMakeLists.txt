@@ -12,7 +12,7 @@ install(DIRECTORY launch description rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(PROGRAMS scripts/dummy_joint_publisher.py
+install(PROGRAMS scripts/dummy_joint_publisher.py scripts/smart_joint_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -48,8 +48,8 @@
 #define PULSES_PER_DEGREE (PULSES_PER_10_DEGREES / 10.0) // 50 pulses per degree
 
 // Steering Safety Limits
-#define MAX_STEERING_ANGLE_DEG 10.0  // Maximum steering angle (degrees)
-#define MIN_STEERING_ANGLE_DEG -10.0 // Minimum steering angle (degrees)
+#define MAX_STEERING_ANGLE_DEG 20.0  // Maximum steering angle (degrees)
+#define MIN_STEERING_ANGLE_DEG -20.0 // Minimum steering angle (degrees)
 
 // Calibration Configuration
 #define CALIBRATION_SPEED 100        // PWM value during calibration

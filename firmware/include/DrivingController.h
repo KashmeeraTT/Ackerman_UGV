@@ -17,7 +17,7 @@ class DrivingController {
 public:
   DrivingController(MotorDriver &motor)
       : motor_(motor), targetVelocity_(0.0), currentVelocity_(0.0),
-        maxAcceleration_(0.5), // 0.5 m/s per update (at 100Hz = 5 m/s²)
+        maxAcceleration_(0.02), // 0.02 m/s per update (at 100Hz = 2 m/s²)
         maxVelocity_(1.0) {}   // Maximum velocity in m/s
 
   /**

@@ -83,6 +83,8 @@ class SlamOdomBridge(Node):
     def pose_cb(self, msg: PoseStamped):
         # Build nav_msgs/Odometry (using odom_frame as parent and base_link_frame as child)
         odom = Odometry()
+        # FIX: Use original timestamp to match sensor data
+        # current_time = self.get_clock().now().to_msg()
         odom.header.stamp = msg.header.stamp
         odom.header.frame_id = self.odom_frame
         odom.child_frame_id = self.base_link_frame

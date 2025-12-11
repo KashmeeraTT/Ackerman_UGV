@@ -2,4 +2,5 @@ slam_odom_bridge:
   ros__parameters:
     slam_pose_topic: "/orbslam3/pose"
     odom_frame: "odom"
-    base_frame: "base_link"
+    base_link_frame: "base_link"
+    publish_map_to_odom: false

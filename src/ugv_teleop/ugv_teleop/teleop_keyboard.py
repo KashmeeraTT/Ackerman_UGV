@@ -71,8 +71,8 @@ steeringBindings = {
     'a': -2,      # Decrease steering angle by 2 degrees
     'd': 2,       # Increase steering angle by 2 degrees
     's': 0,       # Center steering (0 degrees)
-    'h': -10,     # Full left
-    'y': 10,      # Full right
+    'h': -20,     # Full left
+    'y': 20,      # Full right
 }
 
 # Speed adjustment keys
@@ -118,10 +118,10 @@ class TeleopKeyboard(Node):
         self.th = 0.0
         
         # Steering angle control (in degrees)
-        # -10 to +10 degrees based on UGV steering range
+        # -20 to +20 degrees based on UGV steering range
         self.steering_angle = 0.0
-        self.max_steering_angle = 10.0
-        self.min_steering_angle = -10.0
+        self.max_steering_angle = 20.0
+        self.min_steering_angle = -20.0
         
         # Control state
         self.status = 0
@@ -167,8 +167,17 @@ class TeleopKeyboard(Node):
                 key = getKey(settings)
                 
                 if key in moveBindings.keys():
-                    self.x = moveBindings[key][0]
-                    self.th = moveBindings[key][1]
+                    target_x = moveBindings[key][0]
+                    target_th = moveBindings[key][1]
+                    
+                    self.x = target_x
+                    
+                    # Only update steering if the command implies a turn
+                    if target_th != 0:
+                        self.th = target_th
+                        # Sync internal steering angle tracking
+                        self.steering_angle = self.th * self.max_steering_angle
+                    
                     self.status += 1
                     
                 elif key in steeringBindings.keys():
@@ -182,7 +191,8 @@ class TeleopKeyboard(Node):
                         # Increment/decrement steering angle
                         self.steering_angle = self.update_steering_angle(angle_delta)
                     
-                    self.x = 0.0
+                    # Do NOT stop moving when steering - keeps last self.x
+                    # self.x = 0.0 
                     self.status += 1
                     print(f"Steering: {self.steering_angle:.1f}° | Turn rate: {self.th:.2f}")
                     

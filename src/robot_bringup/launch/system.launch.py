@@ -17,11 +17,18 @@ def generate_launch_description():
 
     # Launch Configurations
     use_rviz = LaunchConfiguration('use_rviz')
+    use_micro_ros = LaunchConfiguration('use_micro_ros')
     
     declare_use_rviz = DeclareLaunchArgument(
         'use_rviz',
         default_value='true',
         description='Whether to start RViz'
+    )
+
+    declare_use_micro_ros = DeclareLaunchArgument(
+        'use_micro_ros',
+        default_value='false',
+        description='Whether to start micro-ROS agent (set to true if motors are connected)'
     )
 
     declare_serial_port = DeclareLaunchArgument(
@@ -46,10 +53,10 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_desc}]
     )
 
-    # Joint State Publisher (Publishes default 0 state for non-fixed joints)
+    # Joint State Publisher (Smart Publisher for Visualization)
     jsp_node = Node(
         package='robot_bringup',
-        executable='dummy_joint_publisher.py',
+        executable='smart_joint_publisher.py',
         name='joint_state_publisher',
         output='screen'
     )
@@ -67,7 +74,8 @@ def generate_launch_description():
             'serial', '--dev', serial_port, '-b', '115200'
         ],
         name='micro_ros_agent',
-        output='screen'
+        output='screen',
+        condition=IfCondition(use_micro_ros)
     )
 
     # VSLAM Bringup
@@ -106,6 +114,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_rviz,
+        declare_use_micro_ros,
         declare_serial_port,
         rsp_node,
         jsp_node,

@@ -1,29 +1,111 @@
 <?xml version="1.0"?>
 <robot name="ackermann_robot">
 
-  <!-- Materials -->
-  <material name="blue">
-    <color rgba="0 0 0.8 1"/>
+  <!-- ============================================== -->
+  <!--               CYBER MATERIALS                  -->
+  <!-- ============================================== -->
+  <material name="dark_grey">
+    <color rgba="0.2 0.2 0.2 1"/>
   </material>
-  <material name="black">
-    <color rgba="0 0 0 1"/>
-  </material>
-  <material name="red">
-    <color rgba="1 0 0 1"/>
-  </material>
-  <material name="grey">
-    <color rgba="0.5 0.5 0.5 1"/>
+  
+  <material name="light_grey">
+    <color rgba="0.6 0.6 0.6 1"/>
   </material>
 
-  <!-- Base Link -->
+  <material name="cyan">
+    <color rgba="0 1 1 1"/>
+  </material>
+  
+  <material name="flat_black">
+    <color rgba="0.1 0.1 0.1 1"/>
+  </material>
+
+  <material name="headlight_white">
+    <color rgba="0.9 0.9 1.0 1"/>
+  </material>
+
+  <material name="taillight_red">
+    <color rgba="1 0 0 1"/>
+  </material>
+
+  <!-- ============================================== -->
+  <!--                 CHASSIS                        -->
+  <!-- ============================================== -->
   <link name="base_link">
+    <!-- Main Body -->
     <visual>
       <geometry>
-        <box size="1.0 0.6 0.3"/>
+        <box size="1.0 0.6 0.25"/> <!-- Slightly thinner main block -->
       </geometry>
-      <material name="blue"/>
+      <material name="dark_grey"/>
       <origin xyz="0 0 0.15"/>
     </visual>
+    
+    <!-- Top Deck / Plate -->
+    <visual>
+      <geometry>
+        <box size="0.8 0.55 0.02"/>
+      </geometry>
+      <material name="light_grey"/>
+      <origin xyz="0 0 0.28"/>
+    </visual>
+
+    <!-- Headlights (Front Left/Right) -->
+    <visual>
+      <geometry>
+        <box size="0.02 0.1 0.05"/>
+      </geometry>
+      <material name="headlight_white"/>
+      <origin xyz="0.5 0.2 0.2"/>
+    </visual>
+    <visual>
+      <geometry>
+        <box size="0.02 0.1 0.05"/>
+      </geometry>
+      <material name="headlight_white"/>
+      <origin xyz="0.5 -0.2 0.2"/>
+    </visual>
+
+    <!-- Taillights (Rear Left/Right) -->
+    <visual>
+      <geometry>
+        <box size="0.02 0.1 0.05"/>
+      </geometry>
+      <material name="taillight_red"/>
+      <origin xyz="-0.5 0.2 0.2"/>
+    </visual>
+    <visual>
+      <geometry>
+        <box size="0.02 0.1 0.05"/>
+      </geometry>
+      <material name="taillight_red"/>
+      <origin xyz="-0.5 -0.2 0.2"/>
+    </visual>
+
+    <!-- Roll Bar (Sporty look) -->
+    <visual>
+      <geometry>
+        <cylinder length="0.56" radius="0.02"/> <!-- Crossbar -->
+      </geometry>
+      <material name="cyan"/>
+      <origin xyz="-0.2 0 0.45" rpy="1.5707 0 0"/>
+    </visual>
+    <visual>
+      <geometry>
+        <cylinder length="0.25" radius="0.02"/> <!-- Left Post -->
+      </geometry>
+      <material name="cyan"/>
+      <origin xyz="-0.2 0.28 0.35" rpy="0 0 0"/>
+    </visual>
+    <visual>
+      <geometry>
+        <cylinder length="0.25" radius="0.02"/> <!-- Right Post -->
+      </geometry>
+      <material name="cyan"/>
+      <origin xyz="-0.2 -0.28 0.35" rpy="0 0 0"/>
+    </visual>
+
+    <!-- Collision (Simplified) -->
     <collision>
       <geometry>
         <box size="1.0 0.6 0.3"/>
@@ -32,7 +114,6 @@
     </collision>
   </link>
 
-  <!-- Base Footprint (Projection on ground) -->
   <link name="base_footprint"/>
   <joint name="base_joint" type="fixed">
     <parent link="base_link"/>
@@ -40,24 +121,29 @@
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <!-- Dimensions
-       Wheelbase: 0.85m -> Front/Rear axles at +/- 0.425m
-       Track Width: ~0.7m -> Wheels at +/- 0.35m
-       Wheel Radius: 0.15m
-       Wheel Width: 0.1m
-  -->
+  <!-- ============================================== -->
+  <!--                  WHEELS                        -->
+  <!-- ============================================== -->
+  <!-- Dimensions: Radius 0.15m, Width 0.1m -->
 
-  <!-- REAR LEFT WHEEL (Driving) -->
+  <!-- REAR LEFT WHEEL -->
   <link name="rear_left_wheel">
     <visual>
       <geometry>
         <cylinder length="0.1" radius="0.15"/>
       </geometry>
-      <material name="black"/>
+      <material name="flat_black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+    <!-- Rim Detail -->
+    <visual>
+      <geometry>
+        <cylinder length="0.105" radius="0.08"/>
+      </geometry>
+      <material name="light_grey"/>
       <origin rpy="1.57079632679 0 0"/>
     </visual>
   </link>
-
   <joint name="rear_left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_left_wheel"/>
@@ -65,17 +151,24 @@
     <axis xyz="0 1 0"/>
   </joint>
 
-  <!-- REAR RIGHT WHEEL (Driving) -->
+  <!-- REAR RIGHT WHEEL -->
   <link name="rear_right_wheel">
     <visual>
       <geometry>
         <cylinder length="0.1" radius="0.15"/>
       </geometry>
-      <material name="black"/>
+      <material name="flat_black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+    <!-- Rim Detail -->
+    <visual>
+      <geometry>
+        <cylinder length="0.105" radius="0.08"/>
+      </geometry>
+      <material name="light_grey"/>
       <origin rpy="1.57079632679 0 0"/>
     </visual>
   </link>
-
   <joint name="rear_right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_right_wheel"/>
@@ -83,17 +176,15 @@
     <axis xyz="0 1 0"/>
   </joint>
 
-
-  <!-- FRONT LEFT STEERING (Steering Link + Wheel) -->
+  <!-- FRONT LEFT STEERING -->
   <link name="front_left_steering_link">
     <visual>
        <geometry>
          <cylinder length="0.05" radius="0.05"/>
        </geometry>
-       <material name="grey"/>
+       <material name="light_grey"/>
     </visual>
   </link>
-
   <joint name="front_left_steering_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_left_steering_link"/>
@@ -107,11 +198,18 @@
       <geometry>
         <cylinder length="0.1" radius="0.15"/>
       </geometry>
-      <material name="black"/>
+      <material name="flat_black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+    <!-- Rim Detail -->
+    <visual>
+      <geometry>
+        <cylinder length="0.105" radius="0.08"/>
+      </geometry>
+      <material name="light_grey"/>
       <origin rpy="1.57079632679 0 0"/>
     </visual>
   </link>
-
   <joint name="front_left_wheel_joint" type="continuous">
     <parent link="front_left_steering_link"/>
     <child link="front_left_wheel"/>
@@ -119,17 +217,15 @@
     <axis xyz="0 1 0"/>
   </joint>
 
-
-  <!-- FRONT RIGHT STEERING (Steering Link + Wheel) -->
+  <!-- FRONT RIGHT STEERING -->
   <link name="front_right_steering_link">
     <visual>
        <geometry>
          <cylinder length="0.05" radius="0.05"/>
        </geometry>
-       <material name="grey"/>
+       <material name="light_grey"/>
     </visual>
   </link>
-
   <joint name="front_right_steering_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_right_steering_link"/>
@@ -143,11 +239,18 @@
       <geometry>
         <cylinder length="0.1" radius="0.15"/>
       </geometry>
-      <material name="black"/>
+      <material name="flat_black"/>
+      <origin rpy="1.57079632679 0 0"/>
+    </visual>
+    <!-- Rim Detail -->
+    <visual>
+      <geometry>
+        <cylinder length="0.105" radius="0.08"/>
+      </geometry>
+      <material name="light_grey"/>
       <origin rpy="1.57079632679 0 0"/>
     </visual>
   </link>
-
   <joint name="front_right_wheel_joint" type="continuous">
     <parent link="front_right_steering_link"/>
     <child link="front_right_wheel"/>
@@ -157,20 +260,26 @@
 
 
   <!-- Camera Link -->
-  <!-- Mounted on top of the chassis at the front -->
   <link name="camera_link">
     <visual>
       <geometry>
         <box size="0.05 0.15 0.05"/>
       </geometry>
-      <material name="black"/>
+      <material name="light_grey"/>
+    </visual>
+    <!-- Lens detail -->
+    <visual>
+      <geometry>
+         <cylinder length="0.055" radius="0.02"/>
+      </geometry>
+      <material name="flat_black"/>
+      <origin xyz="0.02 0 0" rpy="0 1.5707 0"/>
     </visual>
   </link>
 
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <!-- Chassis is 0.3 high (z=0 to 0.3). Mount camera on top at x=0.45 -->
     <origin xyz="0.45 0 0.325" rpy="0 0 0"/>
   </joint>
 
@@ -180,7 +289,7 @@
       <geometry>
         <cylinder length="0.05" radius="0.05"/>
       </geometry>
-       <material name="red"/>
+       <material name="cyan"/>
     </visual>
   </link>
   

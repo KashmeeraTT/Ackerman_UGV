@@ -298,8 +298,8 @@ public:
    * Safe zone is considered center ±8 degrees (400 pulses)
    */
   bool isInSafeZone() const {
-    // Safe zone: -400 to +400 pulses from center
-    return (encoderCount_ >= -400 && encoderCount_ <= 400);
+    // Safe zone: -800 to +800 pulses from center
+    return (encoderCount_ >= -800 && encoderCount_ <= 800);
   }
 
   /**
@@ -363,9 +363,9 @@ private:
     }
 
     // Check soft limits using encoder count directly (no floating point math)
-    // PULSES_PER_DEGREE = 50, so ±10 degrees = ±500 pulses
-    // Add 20% margin = ±600 pulses
-    if (encoderCount_ < -600 || encoderCount_ > 600) {
+    // PULSES_PER_DEGREE = 50, so ±20 degrees = ±1000 pulses
+    // Add margin = ±1100 pulses
+    if (encoderCount_ < -1100 || encoderCount_ > 1100) {
       emergencyStop_ = true;
     }
   }

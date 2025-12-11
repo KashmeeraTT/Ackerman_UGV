@@ -3,6 +3,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
 
 
 def generate_launch_description():
@@ -53,24 +54,15 @@ def generate_launch_description():
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
-            parameters=[params_file, {'default_bt_xml_filename': bt_xml}],
+            parameters=[params_file],
         ),
 
-        # Lifecycle manager
+        # Lifecycle manager - using params_file for all configuration
         Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_navigation',
             output='screen',
-            parameters=[{
-                'use_sim_time': False,
-                'autostart': True,
-                'node_names': [
-                    'controller_server',
-                    'planner_server',
-                    'behavior_server',
-                    'bt_navigator',
-                ],
-            }],
+            parameters=[params_file],
         ),
     ])

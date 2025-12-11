@@ -1,7 +1,7 @@
-ackermann_bridge_demo:
+twist_to_ack:
   ros__parameters:
     wheelbase_m: 0.85
-    max_steer_deg: 15.0
+    max_steer_deg: 20.0
     max_speed_mps: 0.50
     max_accel_mps2: 0.60
     cmd_timeout_sec: 0.2

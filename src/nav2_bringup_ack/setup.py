@@ -14,6 +14,8 @@ setup(
          ['launch/nav2_bringup.launch.py']),
         ('share/' + package_name + '/config',
          ['config/nav2_params.yaml']),
+        ('share/' + package_name + '/scripts',
+         ['scripts/activate_nav2.sh']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

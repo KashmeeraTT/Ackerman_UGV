@@ -8,14 +8,18 @@ class DummyJointPublisher(Node):
         super().__init__('dummy_joint_publisher')
         self.publisher_ = self.create_publisher(JointState, 'joint_states', 10)
         self.timer = self.create_timer(0.1, self.timer_callback)
-        self.joints = [
+        # Declare parameter for valid joints
+        self.declare_parameter('joints', [
             'rear_left_wheel_joint',
             'rear_right_wheel_joint',
             'front_left_steering_joint',
             'front_left_wheel_joint',
             'front_right_steering_joint',
             'front_right_wheel_joint'
-        ]
+        ])
+        
+        self.joints = self.get_parameter('joints').value
+        self.get_logger().info(f'Publishing 0.0 state for joints: {self.joints}')
 
     def timer_callback(self):
         msg = JointState()

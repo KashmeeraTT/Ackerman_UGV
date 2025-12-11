@@ -10,6 +10,9 @@ Panels:
         - /TF1
         - /Odometry1
         - /Map1
+        - /LaserScan1
+        - /PointCloud21
+        - /Path1
       Splitter Ratio: 0.5
     Tree Height: 557
   - Class: rviz_common/Selection
@@ -28,10 +31,10 @@ Panels:
 Visualization Manager:
   Class: ""
   Displays:
-    - Alpha: 0.5
+    - Alpha: 0.3
       Cell Size: 1
       Class: rviz_default_plugins/Grid
-      Color: 160; 160; 164
+      Color: 60; 70; 80
       Enabled: true
       Line Style:
         Line Width: 0.029999999329447746
@@ -43,7 +46,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 10
+      Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
       Value: true
     - Alpha: 1
@@ -85,7 +88,7 @@ Visualization Manager:
       Marker Scale: 1
       Name: TF
       Show Arrows: false
-      Show Axes: true
+      Show Axes: false
       Show Names: true
       Tree:
         {}
@@ -132,14 +135,14 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
+        Max Value: 3.0
+        Min Value: 0.0
         Value: true
       Axis: Z
       Channel Name: intensity
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: RGB8
+      Color Transformer: AxisColor
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -184,13 +187,13 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 25; 255; 0
+      Color: 255; 165; 0
       Enabled: true
-      Head Diameter: 0.30000001192092896
-      Head Length: 0.20000000298023224
+      Head Diameter: 0.1
+      Head Length: 0.15
       Length: 0.30000001192092896
       Line Style: Lines
-      Line Width: 0.029999999329447746
+      Line Width: 0.05
       Name: Path
       Offset:
         X: 0
@@ -214,7 +217,7 @@ Visualization Manager:
       Axis: Z
       Channel Name: intensity
       Class: rviz_default_plugins/LaserScan
-      Color: 255; 0; 0
+      Color: 0; 255; 255
       Color Transformer: FlatColor
       Decay Time: 0
       Enabled: true
@@ -238,7 +241,7 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
-    - Alpha: 0.7
+    - Alpha: 0.6
       Class: rviz_default_plugins/Map
       Color Scheme: costmap
       Draw Behind: false
@@ -257,7 +260,7 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /global_costmap/costmap_updates
       Value: true
-    - Alpha: 0.7
+    - Alpha: 0.6
       Class: rviz_default_plugins/Map
       Color Scheme: costmap
       Draw Behind: false
@@ -278,8 +281,8 @@ Visualization Manager:
       Value: true
   Enabled: true
   Global Options:
-    Background Color: 48; 48; 48
-    Fixed Frame: map
+    Background Color: 30; 30; 40
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:
@@ -331,8 +334,8 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
-      Target Frame: <Fixed Frame>
+      Pitch: 0.6
+      Target Frame: base_link
       Value: Orbit (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 5.5
     Saved: ~

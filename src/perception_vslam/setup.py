@@ -27,7 +27,6 @@ setup(
     license='MIT',
     entry_points={
         'console_scripts': [
-            'slam_odom_bridge = perception_vslam.slam_odom_bridge:main',
         ],
     },
 )

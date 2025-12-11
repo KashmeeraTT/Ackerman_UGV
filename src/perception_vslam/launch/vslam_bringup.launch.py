@@ -20,7 +20,11 @@ def generate_launch_description():
         # Camera
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(gem2l_launch),
-            launch_arguments={'enable_align_depth': 'true'}.items()
+            launch_arguments={
+                'enable_align_depth': 'true',
+                'depth_fps': '10',
+                'color_fps': '10'
+            }.items()
         ),
 
         # Static TF base_link -> camera_link
@@ -47,7 +51,7 @@ def generate_launch_description():
             arguments=[voc_path, tum3_yaml],
             remappings=[
                 ('rgb/image',       '/camera/color/image_raw'),
-                ('depth/image',     '/camera/aligned_depth_to_color/image_raw'),
+                ('depth/image',     '/camera/depth/image_raw'),
                 ('rgb/camera_info', '/camera/color/camera_info'),
             ]
         ),
