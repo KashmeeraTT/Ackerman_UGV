@@ -31,7 +31,7 @@ Camera.height: 800
 
 # Camera frames per second  (adjust if needed)
 
-Camera.fps: 40
+Camera.fps: 10
 
 # Color order of the images (0: BGR, 1: RGB)
 

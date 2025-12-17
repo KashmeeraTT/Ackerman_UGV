@@ -25,11 +25,13 @@ class SmartJointPublisher(Node):
         # Parameters
         self.declare_parameter('wheelbase', 0.60) # Dist between front/rear axles
         self.declare_parameter('track_width', 1.16) # Dist between left/right wheels
-        self.declare_parameter('max_steer_angle', 0.5) # Radians
+        self.declare_parameter('max_steer_angle', 0.349) # Radians (~20 degrees)
+        self.declare_parameter('wheel_radius', 0.15) # meters
         
         self.wheelbase = self.get_parameter('wheelbase').value
         self.track_width = self.get_parameter('track_width').value
         self.max_steer_angle = self.get_parameter('max_steer_angle').value
+        self.wheel_radius = self.get_parameter('wheel_radius').value
 
         # State variables
         self.current_speed = 0.0
@@ -74,9 +76,9 @@ class SmartJointPublisher(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         
         # Update wheel rotation for animation (visual only effect)
-        # s = r * theta -> theta = s / r. Assume radius ~0.15
+        # s = r * theta -> theta = s / r
         move_dist = self.current_speed * dt
-        wheel_rot_inc = move_dist / 0.15 
+        wheel_rot_inc = move_dist / self.wheel_radius 
         self.wheel_rotation += wheel_rot_inc
         
         # Populate message

@@ -221,9 +221,7 @@ class TeleopKeyboard(Node):
                     break
                     
                 else:
-                    # Unknown key
-                    if key == '\x03':
-                        break
+                    # Unknown key - ignore
                     continue
                 
                 # Publish

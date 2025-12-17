@@ -43,8 +43,9 @@
 #define MOTOR_DEADBAND 20 // PWM deadband to prevent motor hum
 
 // Encoder Configuration
-#define ENCODER_PPR 600                    // Pulses per revolution
-#define PULSES_PER_10_DEGREES 500          // 10 degrees = 500 pulses (as per requirement)
+#define ENCODER_PPR 600 // Pulses per revolution
+#define PULSES_PER_10_DEGREES                                                  \
+  500 // 10 degrees = 500 pulses (as per requirement)
 #define PULSES_PER_DEGREE (PULSES_PER_10_DEGREES / 10.0) // 50 pulses per degree
 
 // Steering Safety Limits
@@ -53,8 +54,6 @@
 
 // Calibration Configuration
 #define CALIBRATION_SPEED 100        // PWM value during calibration
-#define CALIBRATION_TIMEOUT_MS 10000 // Timeout for calibration (10 seconds)
-
 #define CALIBRATION_TIMEOUT_MS 10000 // Timeout for calibration (10 seconds)
 
 // I2C Configuration (OLED + GY87)

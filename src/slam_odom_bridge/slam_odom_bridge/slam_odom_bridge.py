@@ -87,6 +87,10 @@ class SlamOdomBridge(Node):
         self.last_slam_time = None  # Time of last SLAM pose
         self.tracking_active = False  # Whether VSLAM is currently tracking
         self.tracking_lost_warned = False  # Avoid spamming warnings
+        
+        # State for velocity estimation
+        self.prev_position = None  # Previous position for velocity calculation
+        self.prev_time = None  # Previous timestamp
 
         # If you want odom==map (no wheel odom), publish a static identity map->odom
         if self.publish_map_to_odom and self.map_frame and self.odom_frame:
@@ -227,6 +231,31 @@ class SlamOdomBridge(Node):
         cov[28] = 0.10     # pitch
         cov[35] = 0.20     # yaw
         odom.pose.covariance = cov
+        
+        # Estimate velocity from position change (simple differentiation)
+        current_time = self.get_clock().now()
+        current_pos = (odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z)
+        
+        if self.prev_position is not None and self.prev_time is not None:
+            dt = (current_time - self.prev_time).nanoseconds / 1e9
+            if dt > 0.01:  # Minimum time delta to avoid division by zero
+                # Linear velocity
+                odom.twist.twist.linear.x = (current_pos[0] - self.prev_position[0]) / dt
+                odom.twist.twist.linear.y = (current_pos[1] - self.prev_position[1]) / dt
+                odom.twist.twist.linear.z = (current_pos[2] - self.prev_position[2]) / dt
+                # Note: Angular velocity estimation would require quaternion differentiation
+                # which is more complex; leaving at zero for now
+        
+        self.prev_position = current_pos
+        self.prev_time = current_time
+        
+        # Twist covariance (higher uncertainty than pose)
+        twist_cov = [0.0] * 36
+        twist_cov[0] = 0.1      # vx
+        twist_cov[7] = 0.1      # vy
+        twist_cov[14] = 0.2     # vz
+        twist_cov[35] = 0.3     # wz
+        odom.twist.covariance = twist_cov
 
         # Publish odometry
         self.odom_pub.publish(odom)

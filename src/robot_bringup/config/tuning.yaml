@@ -37,7 +37,7 @@ scan:
 
 navigation:
   # Planner
-  minimum_turning_radius: 1.5    # Minimum turn radius (meters)
+  minimum_turning_radius: 1.65   # Minimum turn radius (meters) = wheelbase/tan(20°)
   max_planning_time: 5.0         # Planner timeout (seconds)
   
   # Controller

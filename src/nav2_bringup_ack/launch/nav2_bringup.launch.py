@@ -11,14 +11,6 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('nav2_bringup_ack')
     params_file = os.path.join(bringup_dir, 'config', 'nav2_params.yaml')
 
-    # Path to the default Nav2 behavior tree XML
-    bt_dir = get_package_share_directory('nav2_bt_navigator')
-    bt_xml = os.path.join(
-        bt_dir,
-        'behavior_trees',
-        'navigate_to_pose_w_replanning_and_recovery.xml'
-    )
-
     # Nav2 nodes (start immediately)
     planner_server = Node(
         package='nav2_planner',

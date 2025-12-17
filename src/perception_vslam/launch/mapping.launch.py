@@ -24,7 +24,7 @@ def generate_launch_description():
                 'max_height': 0.8,              # Reduced from 1.0 (focus on obstacles)
                 'angle_min': -1.5708,           # -M_PI/2
                 'angle_max': 1.5708,            # M_PI/2
-                'angle_increment': 0.0175,      # ~1 degree (was 0.5 deg) - coarser for speed
+                'angle_increment': 0.01745,     # π/180 = exactly 181 readings (fixes off-by-one warning)
                 'scan_time': 0.1,               # Faster updates (was 0.333)
                 'range_min': 0.3,               # Reduced from 0.4 to catch closer obstacles
                 'range_max': 6.0,               # Increased from 4.0 for better planning
@@ -63,8 +63,8 @@ def generate_launch_description():
                 'scan_topic': '/scan_reliable',
                 'mode': 'mapping', # defaults to mapping
                 # Match laser range to actual Orbbec camera/depth sensor capabilities
-                'min_laser_range': 0.4,  # Match sensor minimum range
-                'max_laser_range': 4.0,       # Match sensor maximum range
+                'min_laser_range': 0.25,  # Slightly below sensor's 0.3m to avoid warning
+                'max_laser_range': 6.0,  # Match range_max from pointcloud_to_laserscan
             }]
         )
     ])

@@ -35,7 +35,7 @@
     <!-- Main Body -->
     <visual>
       <geometry>
-        <box size="1.0 0.6 0.25"/> <!-- Slightly thinner main block -->
+        <box size="0.8 1.16 0.25"/> <!-- Length 0.8m (shorter than wheelbase overhang), Width 1.16m (track width) -->
       </geometry>
       <material name="dark_grey"/>
       <origin xyz="0 0 0.15"/>
@@ -44,7 +44,7 @@
     <!-- Top Deck / Plate -->
     <visual>
       <geometry>
-        <box size="0.8 0.55 0.02"/>
+        <box size="0.6 1.0 0.02"/>
       </geometry>
       <material name="light_grey"/>
       <origin xyz="0 0 0.28"/>
@@ -56,14 +56,14 @@
         <box size="0.02 0.1 0.05"/>
       </geometry>
       <material name="headlight_white"/>
-      <origin xyz="0.5 0.2 0.2"/>
+      <origin xyz="0.4 0.5 0.2"/>
     </visual>
     <visual>
       <geometry>
         <box size="0.02 0.1 0.05"/>
       </geometry>
       <material name="headlight_white"/>
-      <origin xyz="0.5 -0.2 0.2"/>
+      <origin xyz="0.4 -0.5 0.2"/>
     </visual>
 
     <!-- Taillights (Rear Left/Right) -->
@@ -72,43 +72,43 @@
         <box size="0.02 0.1 0.05"/>
       </geometry>
       <material name="taillight_red"/>
-      <origin xyz="-0.5 0.2 0.2"/>
+      <origin xyz="-0.4 0.5 0.2"/>
     </visual>
     <visual>
       <geometry>
         <box size="0.02 0.1 0.05"/>
       </geometry>
       <material name="taillight_red"/>
-      <origin xyz="-0.5 -0.2 0.2"/>
+      <origin xyz="-0.4 -0.5 0.2"/>
     </visual>
 
     <!-- Roll Bar (Sporty look) -->
     <visual>
       <geometry>
-        <cylinder length="0.56" radius="0.02"/> <!-- Crossbar -->
+        <cylinder length="1.0" radius="0.02"/> <!-- Crossbar -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.2 0 0.45" rpy="1.5707 0 0"/>
+      <origin xyz="-0.15 0 0.45" rpy="1.5707 0 0"/>
     </visual>
     <visual>
       <geometry>
         <cylinder length="0.25" radius="0.02"/> <!-- Left Post -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.2 0.28 0.35" rpy="0 0 0"/>
+      <origin xyz="-0.15 0.5 0.35" rpy="0 0 0"/>
     </visual>
     <visual>
       <geometry>
         <cylinder length="0.25" radius="0.02"/> <!-- Right Post -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.2 -0.28 0.35" rpy="0 0 0"/>
+      <origin xyz="-0.15 -0.5 0.35" rpy="0 0 0"/>
     </visual>
 
     <!-- Collision (Simplified) -->
     <collision>
       <geometry>
-        <box size="1.0 0.6 0.3"/>
+        <box size="0.8 1.16 0.3"/>
       </geometry>
       <origin xyz="0 0 0.15"/>
     </collision>
@@ -147,7 +147,7 @@
   <joint name="rear_left_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_left_wheel"/>
-    <origin xyz="-0.425 0.35 0.15" rpy="0 0 0"/>
+    <origin xyz="-0.3 0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 1 0"/>
   </joint>
 
@@ -172,7 +172,7 @@
   <joint name="rear_right_wheel_joint" type="continuous">
     <parent link="base_link"/>
     <child link="rear_right_wheel"/>
-    <origin xyz="-0.425 -0.35 0.15" rpy="0 0 0"/>
+    <origin xyz="-0.3 -0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 1 0"/>
   </joint>
 
@@ -188,7 +188,7 @@
   <joint name="front_left_steering_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_left_steering_link"/>
-    <origin xyz="0.425 0.35 0.15" rpy="0 0 0"/>
+    <origin xyz="0.3 0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 0 1"/>
     <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
   </joint>
@@ -229,7 +229,7 @@
   <joint name="front_right_steering_joint" type="revolute">
     <parent link="base_link"/>
     <child link="front_right_steering_link"/>
-    <origin xyz="0.425 -0.35 0.15" rpy="0 0 0"/>
+    <origin xyz="0.3 -0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 0 1"/>
     <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
   </joint>
@@ -280,23 +280,11 @@
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <origin xyz="0.45 0 0.325" rpy="0 0 0"/>
+    <!-- Camera at front, tilted 10° down for better ground obstacle detection -->
+    <origin xyz="0.45 0 0.325" rpy="0 0.175 0"/>
   </joint>
 
-  <!-- Lidar Link -->
-  <link name="lidar_link">
-       <visual>
-      <geometry>
-        <cylinder length="0.05" radius="0.05"/>
-      </geometry>
-       <material name="cyan"/>
-    </visual>
-  </link>
-  
-  <joint name="base_to_lidar" type="fixed">
-    <parent link="base_link"/>
-    <child link="lidar_link"/>
-    <origin xyz="0.2 0 0.325" rpy="0 0 0"/>
-  </joint>
+  <!-- Note: Laser scan (/scan) is generated from camera depth via pointcloud_to_laserscan node -->
+  <!-- No separate lidar hardware - camera_link is the reference frame for all perception -->
 
 </robot>

@@ -1,13 +1,13 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 #include <geometry_msgs/msg/twist.h>
 #include <micro_ros_platformio.h>
 #include <rcl/rcl.h>
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
-#include <std_msgs/msg/string.h>
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/float32.h>
-#include <esp_task_wdt.h>
+#include <std_msgs/msg/string.h>
 
 #include "DrivingController.h"
 #include "MotorDriver.h"
@@ -50,13 +50,13 @@ std_msgs__msg__String status_msg;
 rcl_publisher_t heartbeat_publisher;
 std_msgs__msg__Bool heartbeat_msg;
 unsigned long lastHeartbeatPublish = 0;
-const unsigned long HEARTBEAT_PERIOD_MS = 100;  // 10Hz heartbeat
+const unsigned long HEARTBEAT_PERIOD_MS = 100; // 10Hz heartbeat
 
 // Steering angle publisher (for navigation feedback)
 rcl_publisher_t steering_angle_publisher;
 std_msgs__msg__Float32 steering_angle_msg;
 unsigned long lastSteeringAnglePublish = 0;
-const unsigned long STEERING_ANGLE_PERIOD_MS = 50;  // 20Hz for smooth feedback
+const unsigned long STEERING_ANGLE_PERIOD_MS = 50; // 20Hz for smooth feedback
 
 char status_buffer[256];
 
@@ -77,15 +77,18 @@ unsigned long lastDisplayUpdate = 0;
 const unsigned long CONTROL_PERIOD_MS = 10;  // 100Hz control loop
 const unsigned long STATUS_PERIOD_MS = 100;  // 10Hz status publishing
 const unsigned long DISPLAY_PERIOD_MS = 200; // 5Hz display update
-const unsigned long CMD_TIMEOUT_MS = 500;    // 500ms command timeout - SAFETY CRITICAL
-bool cmdTimeoutActive = false;               // Track timeout state for display
+const unsigned long CMD_TIMEOUT_MS =
+    500;                       // 500ms command timeout - SAFETY CRITICAL
+bool cmdTimeoutActive = false; // Track timeout state for display
 
 // System state
 bool systemInitialized = false;
 bool emergencyStopActive = false;
 unsigned long systemInitializeTime = 0; // Track when system becomes ready
-volatile bool inStartupGracePeriod = false; // Flag to suppress emergency stop during startup
-const unsigned long STARTUP_GRACE_PERIOD = 2000; // 2 seconds after micro-ROS init
+volatile bool inStartupGracePeriod =
+    false; // Flag to suppress emergency stop during startup
+const unsigned long STARTUP_GRACE_PERIOD =
+    2000; // 2 seconds after micro-ROS init
 
 // ========================================
 // Function Declarations
@@ -97,7 +100,7 @@ void performCalibration();
 void updateControllers();
 void checkErrorStates();
 void testLimitSwitches();
-void testSteeringAngle();  // New: Test steering angle control
+void testSteeringAngle(); // New: Test steering angle control
 
 bool setupMicroROS();
 void updateDisplay();
@@ -233,10 +236,10 @@ bool setupMicroROS() {
   // Initialize status message
   status_msg.data.data = status_buffer;
   status_msg.data.capacity = sizeof(status_buffer);
-  
+
   // Initialize heartbeat message
   heartbeat_msg.data = true;
-  
+
   // Initialize steering angle message
   steering_angle_msg.data = 0.0;
 
@@ -269,7 +272,8 @@ void autoTestLimitSwitches() {
   Serial.println("Waiting for LEFT limit switch to be pressed...");
 
   // Move steering motor left
-  steeringMotor.setSpeed(-150); // Move left at sufficient speed to overcome deadband
+  steeringMotor.setSpeed(
+      -150); // Move left at sufficient speed to overcome deadband
   unsigned long testStart = millis();
   bool leftPressed = false;
 
@@ -282,13 +286,13 @@ void autoTestLimitSwitches() {
       Serial.println("✓ LEFT limit switch PRESSED!");
       break;
     }
-    
+
     // Safety: If motor running for too long (>30 sec), abort
     if (millis() - testStart > 30000) {
       Serial.println("✗ LEFT limit switch test timeout (30 seconds)!");
       break;
     }
-    
+
     delay(10);
   }
 
@@ -321,7 +325,8 @@ void autoTestLimitSwitches() {
   Serial.println("Waiting for RIGHT limit switch to be pressed...");
 
   // Move steering motor right
-  steeringMotor.setSpeed(150); // Move right at sufficient speed to overcome deadband
+  steeringMotor.setSpeed(
+      150); // Move right at sufficient speed to overcome deadband
   testStart = millis();
   bool rightPressed = false;
 
@@ -334,13 +339,13 @@ void autoTestLimitSwitches() {
       Serial.println("✓ RIGHT limit switch PRESSED!");
       break;
     }
-    
+
     // Safety: If motor running for too long (>30 sec), abort
     if (millis() - testStart > 30000) {
       Serial.println("✗ RIGHT limit switch test timeout (30 seconds)!");
       break;
     }
-    
+
     delay(10);
   }
 
@@ -389,7 +394,7 @@ void autoTestLimitSwitches() {
     Serial.println("Check switch wiring and connections.");
   }
 
-  delay(2000);  // Show result for 2 seconds instead of 3
+  delay(2000); // Show result for 2 seconds instead of 3
 }
 
 /**
@@ -407,7 +412,7 @@ void performCalibration() {
   if (steeringController.calibrate()) {
     Serial.println("\n✓ Calibration successful!");
     Serial.println("Steering motor centered and ready.");
-    
+
     if (oledFound) {
       display.clearDisplay();
       display.setTextSize(2);
@@ -421,24 +426,25 @@ void performCalibration() {
       display.println(F("Centering steering..."));
       display.display();
     }
-    
+
     // ========================================
     // STARTUP DEFAULT STATE: Center steering and stop motors
     // ========================================
     Serial.println("Setting default startup state...");
-    steeringController.setTargetAngle(0.0);  // Center steering
-    drivingController.stop();                // Stop driving motor
-    
+    steeringController.setTargetAngle(0.0); // Center steering
+    drivingController.stop();               // Stop driving motor
+
     // Wait for steering to reach center
     unsigned long centerStart = millis();
-    while (abs(steeringController.getCurrentAngle()) > 1.0 && (millis() - centerStart < 3000)) {
+    while (abs(steeringController.getCurrentAngle()) > 1.0 &&
+           (millis() - centerStart < 3000)) {
       steeringController.update();
       delay(10);
     }
-    
+
     Serial.println("✓ Steering centered at 0 degrees");
     Serial.println("✓ Motors stopped");
-    
+
     if (oledFound) {
       display.clearDisplay();
       display.setTextSize(2);
@@ -451,13 +457,13 @@ void performCalibration() {
       display.println(F("Waiting for ROS2..."));
       display.display();
     }
-    
+
     delay(2000);
     systemInitialized = true;
   } else {
     Serial.println("\n✗ Calibration failed!");
     Serial.println("Check limit switches and encoder.");
-    
+
     if (oledFound) {
       display.clearDisplay();
       display.setTextSize(2);
@@ -471,7 +477,7 @@ void performCalibration() {
       display.println(F("Check switches"));
       display.display();
     }
-    
+
     delay(3000);
     systemInitialized = false;
   }
@@ -497,31 +503,37 @@ void updateControllers() {
  */
 void checkErrorStates() {
   // Check if grace period has expired
-  if (inStartupGracePeriod && (millis() - systemInitializeTime >= STARTUP_GRACE_PERIOD)) {
+  if (inStartupGracePeriod &&
+      (millis() - systemInitializeTime >= STARTUP_GRACE_PERIOD)) {
     inStartupGracePeriod = false;
-    steeringController.setStartupGracePeriod(false); // Tell ISRs to start monitoring again
-    Serial.println("⏱ Startup grace period expired. Emergency stop protection active.");
+    steeringController.setStartupGracePeriod(
+        false); // Tell ISRs to start monitoring again
+    Serial.println(
+        "⏱ Startup grace period expired. Emergency stop protection active.");
   }
-  
+
   // Attempt to auto-clear emergency stop if steering is in safe zone
   steeringController.attemptAutoClearEmergencyStop();
-  
+
   // Check if emergency stop is active (but ignore during grace period)
   if (steeringController.isEmergencyStop() && !inStartupGracePeriod) {
     if (!emergencyStopActive) {
       emergencyStopActive = true;
       drivingController.stop();
       Serial.println("\n⚠ EMERGENCY STOP: Limit switch activated!");
-      Serial.println("Current steering angle: " + String(steeringController.getCurrentAngle(), 2) + "°");
-      Serial.println("Move steering away from limit to auto-recover, or send 'r' to manually reset.");
+      Serial.println("Current steering angle: " +
+                     String(steeringController.getCurrentAngle(), 2) + "°");
+      Serial.println("Move steering away from limit to auto-recover, or send "
+                     "'r' to manually reset.");
     }
   } else {
-    // No emergency stop (or in grace period) - if was previously active, clear it
+    // No emergency stop (or in grace period) - if was previously active, clear
+    // it
     if (emergencyStopActive && !inStartupGracePeriod) {
       emergencyStopActive = false;
       Serial.println("\n✓ Emergency stop cleared. System resumed.");
     }
-    
+
     // During grace period, suppress emergency stop state
     if (inStartupGracePeriod && emergencyStopActive) {
       emergencyStopActive = false;
@@ -537,7 +549,7 @@ void checkErrorStates() {
       steeringController.forceResetEmergencyStop();
       emergencyStopActive = false;
       Serial.println("✓ Emergency stop reset. System ready.");
-      
+
       if (oledFound) {
         display.clearDisplay();
         display.setTextSize(2);
@@ -604,27 +616,28 @@ void testSteeringAngle() {
     // Read serial commands
     if (Serial.available() > 0) {
       char command = Serial.read();
-      
+
       if (command == 'q' || command == 'Q') {
         Serial.println("\nExiting steering test mode...");
         steeringMotor.stop();
         break;
-      }
-      else if (command == 'a' || command == 'A') {
+      } else if (command == 'a' || command == 'A') {
         // Read angle value
         float angle = Serial.parseFloat();
         // Consume newline
-        while (Serial.available() && Serial.read() != '\n') {}
-        
-        targetAngle = constrain(angle, MIN_STEERING_ANGLE_DEG, MAX_STEERING_ANGLE_DEG);
+        while (Serial.available() && Serial.read() != '\n') {
+        }
+
+        targetAngle =
+            constrain(angle, MIN_STEERING_ANGLE_DEG, MAX_STEERING_ANGLE_DEG);
         steeringController.setTargetAngle(targetAngle);
-        
+
         Serial.print("Set target angle to: ");
         Serial.println(targetAngle, 1);
-      }
-      else if (command == 's' || command == 'S') {
+      } else if (command == 's' || command == 'S') {
         // Consume any remaining characters on this line
-        while (Serial.available() && Serial.read() != '\n') {}
+        while (Serial.available() && Serial.read() != '\n') {
+        }
       }
     }
 
@@ -922,14 +935,14 @@ void updateDisplay() {
 
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
-  
+
   // ========================================
   // ROW 1 (Y=0-15): MODE in large text
   // 128px width, using size 2 font (12x16 px per char)
   // ========================================
   display.setTextSize(2);
   display.setCursor(0, 0);
-  
+
   if (emergencyStopActive) {
     display.print(F("! E-STOP !"));
   } else if (cmdTimeoutActive) {
@@ -941,13 +954,13 @@ void updateDisplay() {
   } else {
     display.print(F("READY"));
   }
-  
+
   // ========================================
   // ROW 2 (Y=18-28): Connection + Command Age
   // ========================================
-  display.setTextSize(1);  // 6x8 px per char
+  display.setTextSize(1); // 6x8 px per char
   display.setCursor(0, 20);
-  
+
   if (cmdVelReceived) {
     unsigned long age = millis() - lastCmdVelTime;
     display.print(F("ROS:"));
@@ -967,7 +980,7 @@ void updateDisplay() {
   } else {
     display.print(F("ROS:-- Cmd:waiting"));
   }
-  
+
   // ========================================
   // ROW 3 (Y=30-38): Steering angle
   // ========================================
@@ -976,7 +989,7 @@ void updateDisplay() {
   display.print(steeringController.getCurrentAngle(), 1);
   display.print(F("/"));
   display.print(steeringController.getTargetAngle(), 1);
-  
+
   // ========================================
   // ROW 4 (Y=42-50): Speed
   // ========================================
@@ -984,12 +997,12 @@ void updateDisplay() {
   display.print(F("Speed:"));
   display.print(drivingController.getCurrentVelocity(), 2);
   display.print(F("m/s"));
-  
+
   // Encoder on right side
   display.setCursor(80, 42);
   display.print(F("E:"));
   display.print(steeringController.getEncoderCount());
-  
+
   // ========================================
   // ROW 5 (Y=54-62): Status bar with limits
   // ========================================
@@ -998,7 +1011,7 @@ void updateDisplay() {
   display.print(steeringController.getLeftLimitState() ? "HIT" : "OK ");
   display.print(F(" R:"));
   display.print(steeringController.getRightLimitState() ? "HIT" : "OK ");
-  
+
   // Status indicator on right
   display.setCursor(90, 54);
   if (emergencyStopActive) {
@@ -1010,7 +1023,7 @@ void updateDisplay() {
   } else {
     display.print(F("[IDLE]"));
   }
-  
+
   display.display();
 }
 
@@ -1191,7 +1204,7 @@ void setup() {
 void loop() {
   // Feed the watchdog timer - prevents ESP32 reset
   esp_task_wdt_reset();
-  
+
   // Spin executor to handle callbacks (with timeout to prevent hang)
   if (systemInitialized) {
     rclc_executor_spin_some(&executor, RCL_MS_TO_NS(1));
@@ -1211,7 +1224,7 @@ void loop() {
       if (!cmdTimeoutActive) {
         // First timeout detection - stop motors
         drivingController.stop();
-        steeringController.setTargetAngle(0.0);  // Center steering
+        steeringController.setTargetAngle(0.0); // Center steering
         cmdTimeoutActive = true;
         Serial.println("⚠ SAFETY: Command timeout - motors stopped");
       }
@@ -1231,14 +1244,16 @@ void loop() {
   if (currentTime - lastHeartbeatPublish >= HEARTBEAT_PERIOD_MS) {
     lastHeartbeatPublish = currentTime;
     heartbeat_msg.data = true;
-    rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL);
+    rcl_ret_t __attribute__((unused)) ret1 =
+        rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL);
   }
 
   // Steering angle publishing (20Hz for smooth navigation feedback)
   if (currentTime - lastSteeringAnglePublish >= STEERING_ANGLE_PERIOD_MS) {
     lastSteeringAnglePublish = currentTime;
     steering_angle_msg.data = steeringController.getCurrentAngle();
-    rcl_publish(&steering_angle_publisher, &steering_angle_msg, NULL);
+    rcl_ret_t __attribute__((unused)) ret2 =
+        rcl_publish(&steering_angle_publisher, &steering_angle_msg, NULL);
   }
 
   // Status publishing
@@ -1253,7 +1268,8 @@ void loop() {
 
     // Show command received popup for 1 second after receiving a command
     // Only after system is fully initialized and calibrated
-    if (systemInitialized && cmdVelReceived && (currentTime - lastCmdVelTime) < 1000) {
+    if (systemInitialized && cmdVelReceived &&
+        (currentTime - lastCmdVelTime) < 1000) {
       displayCommandReceived();
     } else {
       updateDisplay();
