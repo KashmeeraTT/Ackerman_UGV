@@ -16,7 +16,7 @@ class TwistToAck(Node):
         super().__init__('ackermann_bridge_demo')
         # gp = self.get_parameter  # unused
         dp = self.declare_parameter
-        self.L = dp('wheelbase_m', 1.26).get_parameter_value().double_value
+        self.L = dp('wheelbase_m', 0.60).get_parameter_value().double_value
         self.delta_max = math.radians(dp('max_steer_deg', 20.0).get_parameter_value().double_value)
         self.kappa_max = math.tan(self.delta_max) / self.L
         self.max_speed = dp('max_speed_mps', 0.5).get_parameter_value().double_value

@@ -60,7 +60,8 @@ graph TB
     STEER --> MOTION
     DRIVE --> MOTION
     ESP --> OLED
-    HEALTH --> NAV
+    VSLAM -.-> HEALTH
+    HEALTH -.->|Stop if lost| BRIDGE
 ```
 
 ---
@@ -114,7 +115,8 @@ flowchart TB
     PointCloud --> SlamToolbox
     PointCloud --> Costmap
     ORBSLAM --> SlamBridge
-    SlamBridge --> Navigation
+    SlamBridge --> Costmap
+    SlamBridge --> BT
     
     BT --> Planner
     BT --> Controller
@@ -123,11 +125,12 @@ flowchart TB
     Controller --> Costmap
     Controller --> AckBridge
     
-    AckBridge --> MicroROS
-    HealthMon --> AckBridge
-    MicroROS --> ESP32
+    ORBSLAM -.-> HealthMon
+    HealthMon -.->|SLAM Lost: Stop| AckBridge
     
-    ESP32 --> MainLoop
+    AckBridge --> MicroROS
+    MicroROS --> MainLoop
+    
     MainLoop --> SteerCtrl
     MainLoop --> DriveCtrl
     SteerCtrl --> Motors
@@ -273,9 +276,9 @@ graph TB
 | `slam_odom_bridge` | `/orbslam3/camera_pose` | `/odom`, TF: odom→base_link |
 | `pointcloud_to_laserscan` | `/camera/depth/points` | `/scan` |
 | `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel` |
-| `twist_to_ackermann` | `/cmd_vel` | `/ackermann_cmd` |
-| `micro_ros_agent` | `/ackermann_cmd` | `/ugv/*` |
-| `health_monitor` | `/odom`, `/robot/health` | `/robot/health` |
+| `twist_to_ackermann` | `/cmd_vel`, `/ugv/steering_angle` | `/ackermann_cmd` |
+| `micro_ros_agent` | - | - (bridge to ESP32) |
+| `health_monitor` | `/orbslam3/camera_pose` | `/robot/health` |
 
 ---
 
@@ -286,39 +289,31 @@ graph TB
 ```mermaid
 graph LR
     subgraph CamTopics[Camera Topics]
-        C1[camera_color_image_raw]
-        C2[camera_depth_image_raw]
-        C3[camera_depth_points]
-        C4[camera_color_camera_info]
+        C1[color_image_raw]
+        C2[depth_image_raw]
+        C3[depth_points]
     end
     
     subgraph SLAMTopics[SLAM Topics]
-        S1[orbslam3_camera_pose]
+        S1[camera_pose]
         S2[odom]
         S3[scan]
-        S4[map]
     end
     
     subgraph NavTopics[Navigation Topics]
         N1[goal_pose]
         N2[plan]
         N3[cmd_vel]
-        N4[local_costmap]
-        N5[global_costmap]
     end
     
     subgraph UGVTopics[UGV Topics]
         U1[ackermann_cmd]
-        U2[ugv_status]
-        U3[ugv_heartbeat]
-        U4[ugv_steering_angle]
+        U2[steering_angle]
     end
     
-    subgraph SysTopics[System Topics]
-        Y1[robot_health]
-        Y2[tf]
-        Y3[tf_static]
-    end
+    CamTopics --> SLAMTopics
+    SLAMTopics --> NavTopics
+    NavTopics --> UGVTopics
 ```
 
 ### Topic Details
@@ -524,9 +519,9 @@ flowchart LR
     end
     
     subgraph Safety[Safety]
-        CLAMP[Clamp plus minus 20 deg]
+        CLAMP[Clamp to 20 deg]
         LIMIT{Limit Switch?}
-        STOP[Stop Motor]
+        STOP[STOP - PWM = 0]
     end
     
     subgraph Output[Output]
@@ -546,7 +541,7 @@ flowchart LR
     CLAMP --> LIMIT
     LIMIT -->|Yes| STOP
     LIMIT -->|No| PWM
-    STOP --> PWM
+    STOP --> MOTOR
     PWM --> MOTOR
 ```
 
@@ -653,9 +648,9 @@ flowchart TB
         GC[Goal Checker]
     end
     
-    L1 --> L2
-    L2 --> L3
-    L3 --> L4
+    L4 -.->|Triggers if blocked| L3
+    L3 -.->|Triggers if SLAM lost| L2
+    L2 -.->|Triggers if limit hit| L1
 ```
 
 ### Safety Response Table
@@ -754,13 +749,14 @@ planner_server:
   
 # Controller (Pure Pursuit)
 controller_server:
-  desired_linear_vel: 0.3
-  max_angular_vel: 0.5
-  lookahead_dist: 0.8
+  desired_linear_vel: 0.4
+  min_lookahead_dist: 0.6
+  max_lookahead_dist: 1.5
   
 # Costmaps
-inflation_radius: 0.55
-robot_radius: 0.6
+local_inflation_radius: 0.80
+global_inflation_radius: 0.50
+robot_footprint: [[-0.5, -0.3], [0.5, -0.3], [0.5, 0.3], [-0.5, 0.3]]
 ```
 
 ### ESP32 Pin Assignment
@@ -769,12 +765,12 @@ robot_radius: 0.6
 |----------|----------|
 | Steering LPWM | GPIO 25 |
 | Steering RPWM | GPIO 26 |
-| Driving LPWM | GPIO 32 |
-| Driving RPWM | GPIO 33 |
+| Driving LPWM | GPIO 27 |
+| Driving RPWM | GPIO 14 |
 | Encoder A | GPIO 34 |
 | Encoder B | GPIO 35 |
-| Left Limit | GPIO 16 |
-| Right Limit | GPIO 17 |
+| Left Limit | GPIO 32 |
+| Right Limit | GPIO 33 |
 | I2C SDA | GPIO 21 |
 | I2C SCL | GPIO 22 |
 

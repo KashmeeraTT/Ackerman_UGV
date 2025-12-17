@@ -23,8 +23,8 @@ class SmartJointPublisher(Node):
         self.timer = self.create_timer(0.05, self.timer_callback) # 20Hz
 
         # Parameters
-        self.declare_parameter('wheelbase', 0.85) # Dist between front/rear axles (approx)
-        self.declare_parameter('track_width', 0.70) # Dist between left/right wheels
+        self.declare_parameter('wheelbase', 0.60) # Dist between front/rear axles
+        self.declare_parameter('track_width', 1.16) # Dist between left/right wheels
         self.declare_parameter('max_steer_angle', 0.5) # Radians
         
         self.wheelbase = self.get_parameter('wheelbase').value
