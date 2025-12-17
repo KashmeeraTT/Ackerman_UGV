@@ -1,0 +1,821 @@
+# Ackermann UGV System Documentation
+
+Complete technical documentation for the Ackermann Unmanned Ground Vehicle (UGV) system.
+
+---
+
+## Table of Contents
+
+1. [System Overview](#1-system-overview)
+2. [Architecture Diagram](#2-architecture-diagram)
+3. [Hardware Specifications](#3-hardware-specifications)
+4. [Software Packages](#4-software-packages)
+5. [Node Graph](#5-node-graph)
+6. [Topic Reference](#6-topic-reference)
+7. [TF Tree](#7-tf-tree)
+8. [Data Flow Diagrams](#8-data-flow-diagrams)
+9. [Firmware Architecture](#9-firmware-architecture)
+10. [Control Logic](#10-control-logic)
+11. [Safety Systems](#11-safety-systems)
+12. [Command Reference](#12-command-reference)
+13. [Configuration Files](#13-configuration-files)
+
+---
+
+## 1. System Overview
+
+The Ackermann UGV is an autonomous ground vehicle using:
+- **Visual SLAM** (ORB-SLAM3) for localization
+- **Nav2** for path planning and navigation
+- **micro-ROS** for ESP32 motor control
+- **Ackermann kinematics** for steering
+
+```mermaid
+graph TB
+    subgraph "Hardware Layer"
+        CAM[Orbbec Gemini 2L<br/>RGB-D Camera]
+        ESP[ESP32<br/>Motor Controller]
+        STEER[Steering Motor<br/>+ Encoder]
+        DRIVE[Drive Motor]
+        OLED[OLED Display]
+    end
+    
+    subgraph "ROS2 Layer"
+        VSLAM[ORB-SLAM3]
+        NAV[Nav2 Stack]
+        BRIDGE[Ackermann Bridge]
+        HEALTH[Health Monitor]
+    end
+    
+    subgraph "Output"
+        MOTION[Robot Motion]
+    end
+    
+    CAM --> VSLAM
+    VSLAM --> NAV
+    NAV --> BRIDGE
+    BRIDGE --> ESP
+    ESP --> STEER
+    ESP --> DRIVE
+    STEER --> MOTION
+    DRIVE --> MOTION
+    ESP --> OLED
+    HEALTH --> NAV
+```
+
+---
+
+## 2. Architecture Diagram
+
+### Complete System Architecture
+
+```mermaid
+flowchart TB
+    subgraph Hardware["🔧 Hardware Layer"]
+        direction LR
+        Camera["📷 Orbbec Gemini 2L<br/>RGB-D @ 10fps"]
+        ESP32["🎛️ ESP32<br/>Motor Controller"]
+        Motors["⚙️ BTS7960 Drivers<br/>Steering + Drive"]
+        Sensors["📊 Sensors<br/>Encoder + Limits"]
+        Display["🖥️ OLED 128x64"]
+    end
+    
+    subgraph Perception["👁️ Perception Layer"]
+        OrbCamera["orbbec_camera<br/>Camera Driver"]
+        PointCloud["pointcloud_to_laserscan<br/>3D→2D Conversion"]
+        ORBSLAM["orbslam3<br/>Visual SLAM"]
+        SlamBridge["slam_odom_bridge<br/>Pose → Odom + TF"]
+        SlamToolbox["slam_toolbox<br/>2D SLAM Backup"]
+    end
+    
+    subgraph Navigation["🗺️ Navigation Layer"]
+        Planner["planner_server<br/>Hybrid A* Planner"]
+        Controller["controller_server<br/>Pure Pursuit"]
+        BT["bt_navigator<br/>Behavior Tree"]
+        Behavior["behavior_server<br/>Recovery Behaviors"]
+        Costmap["Costmaps<br/>Global + Local"]
+    end
+    
+    subgraph Control["🎮 Control Layer"]
+        AckBridge["twist_to_ackermann<br/>Twist → Ackermann"]
+        MicroROS["micro_ros_agent<br/>USB Serial Bridge"]
+        HealthMon["health_monitor<br/>Safety Watchdog"]
+    end
+    
+    subgraph Firmware["💾 ESP32 Firmware"]
+        MainLoop["Main Loop<br/>100Hz Control"]
+        SteerCtrl["Steering Controller<br/>PID + Encoder"]
+        DriveCtrl["Driving Controller<br/>PWM Control"]
+        Publishers["micro-ROS<br/>Publishers"]
+    end
+    
+    Camera --> OrbCamera
+    OrbCamera --> PointCloud
+    OrbCamera --> ORBSLAM
+    PointCloud --> SlamToolbox
+    PointCloud --> Costmap
+    ORBSLAM --> SlamBridge
+    SlamBridge --> Navigation
+    
+    BT --> Planner
+    BT --> Controller
+    BT --> Behavior
+    Planner --> Costmap
+    Controller --> Costmap
+    Controller --> AckBridge
+    
+    AckBridge --> MicroROS
+    HealthMon --> AckBridge
+    MicroROS --> ESP32
+    
+    ESP32 --> MainLoop
+    MainLoop --> SteerCtrl
+    MainLoop --> DriveCtrl
+    SteerCtrl --> Motors
+    DriveCtrl --> Motors
+    Sensors --> SteerCtrl
+    Publishers --> MicroROS
+    MainLoop --> Display
+```
+
+---
+
+## 3. Hardware Specifications
+
+### Robot Dimensions
+
+| Parameter | Value | Unit |
+|-----------|-------|------|
+| Wheelbase | 0.60 | m |
+| Track Width | 1.16 | m |
+| Max Steering Angle | ±20 | degrees |
+| Min Turn Radius | 1.65 | m |
+| Max Speed | 0.5 | m/s |
+| Max Acceleration | 0.6 | m/s² |
+
+### Components
+
+| Component | Model | Interface | Purpose |
+|-----------|-------|-----------|---------|
+| Compute | Jetson Xavier | - | Main computer |
+| Camera | Orbbec Gemini 2L | USB 3.0 | RGB-D vision |
+| MCU | ESP32 DevKit V1 | USB Serial | Motor control |
+| Steering Driver | BTS7960 | PWM | Steering motor |
+| Drive Driver | BTS7960 | PWM | Drive motor |
+| Steering Encoder | Rotary Encoder | GPIO | Position feedback |
+| Limit Switches | NO Switches (x2) | GPIO | End stops |
+| Display | SSD1306 OLED | I2C | Status display |
+
+---
+
+## 4. Software Packages
+
+### Package Overview
+
+```mermaid
+graph LR
+    subgraph Core["Core Packages"]
+        RB[robot_bringup]
+        UT[ugv_teleop]
+    end
+    
+    subgraph Perception["Perception"]
+        PV[perception_vslam]
+        OS[orbslam3_ros2]
+        OC[OrbbecSDK_ROS2]
+        PL[pointcloud_to_laserscan]
+        SB[slam_odom_bridge]
+    end
+    
+    subgraph Navigation["Navigation"]
+        NB[nav2_bringup_ack]
+    end
+    
+    subgraph Control["Control"]
+        AB[ackermann_bridge_demo]
+        AM[ackermann_msgs]
+    end
+    
+    subgraph Communication["Communication"]
+        MA[micro-ROS-Agent]
+        MM[micro_ros_msgs]
+    end
+    
+    RB --> PV
+    RB --> NB
+    RB --> AB
+    PV --> OS
+    PV --> OC
+    AB --> AM
+    RB --> MA
+```
+
+### Package Details
+
+| Package | Type | Description |
+|---------|------|-------------|
+| `robot_bringup` | Launch/Config | Main launch files and system configuration |
+| `ugv_teleop` | URDF/Config | Robot model and teleop configuration |
+| `perception_vslam` | Launch | Visual SLAM launch and configuration |
+| `orbslam3_ros2` | Node | ORB-SLAM3 ROS2 wrapper |
+| `OrbbecSDK_ROS2` | Driver | Orbbec camera driver |
+| `pointcloud_to_laserscan` | Node | Converts PointCloud2 to LaserScan |
+| `slam_odom_bridge` | Node | Converts SLAM pose to odometry + TF |
+| `nav2_bringup_ack` | Launch/Config | Nav2 with Ackermann parameters |
+| `ackermann_bridge_demo` | Node | Twist to Ackermann conversion |
+| `ackermann_msgs` | Messages | Ackermann message definitions |
+| `micro-ROS-Agent` | Agent | micro-ROS USB serial bridge |
+| `micro_ros_msgs` | Messages | micro-ROS message definitions |
+
+---
+
+## 5. Node Graph
+
+### Active Nodes
+
+```mermaid
+graph TB
+    subgraph Drivers["Driver Nodes"]
+        RSP[robot_state_publisher]
+        STP[static_transform_publisher]
+        CAM[camera_node]
+        MRA[micro_ros_agent]
+    end
+    
+    subgraph SLAM["SLAM Nodes"]
+        ORB[rgbd_node<br/>ORB-SLAM3]
+        SOB[slam_odom_bridge]
+        STB[async_slam_toolbox_node]
+        P2L[pointcloud_to_laserscan_node]
+    end
+    
+    subgraph Nav2["Navigation Nodes"]
+        CS[controller_server]
+        PS[planner_server]
+        BS[behavior_server]
+        BT[bt_navigator]
+        LM[lifecycle_manager]
+    end
+    
+    subgraph Control["Control Nodes"]
+        T2A[twist_to_ackermann]
+        HM[health_monitor]
+        SJP[smart_joint_publisher]
+        SR[scan_relay]
+    end
+```
+
+### Node Communication Matrix
+
+| Node | Subscribes | Publishes |
+|------|------------|-----------|
+| `camera_node` | - | `/camera/color/image_raw`, `/camera/depth/image_raw` |
+| `rgbd_node` | `/camera/*` | `/orbslam3/camera_pose` |
+| `slam_odom_bridge` | `/orbslam3/camera_pose` | `/odom`, TF: odom→base_link |
+| `pointcloud_to_laserscan` | `/camera/depth/points` | `/scan` |
+| `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel` |
+| `twist_to_ackermann` | `/cmd_vel` | `/ackermann_cmd` |
+| `micro_ros_agent` | `/ackermann_cmd` | `/ugv/*` |
+| `health_monitor` | `/odom`, `/robot/health` | `/robot/health` |
+
+---
+
+## 6. Topic Reference
+
+### Complete Topic List
+
+```mermaid
+graph LR
+    subgraph Camera["📷 Camera Topics"]
+        C1[/camera/color/image_raw]
+        C2[/camera/depth/image_raw]
+        C3[/camera/depth/points]
+        C4[/camera/color/camera_info]
+    end
+    
+    subgraph SLAM["🗺️ SLAM Topics"]
+        S1[/orbslam3/camera_pose]
+        S2[/odom]
+        S3[/scan]
+        S4[/map]
+    end
+    
+    subgraph Nav["🧭 Navigation Topics"]
+        N1[/goal_pose]
+        N2[/plan]
+        N3[/cmd_vel]
+        N4[/local_costmap/costmap]
+        N5[/global_costmap/costmap]
+    end
+    
+    subgraph UGV["🚗 UGV Topics"]
+        U1[/ackermann_cmd]
+        U2[/ugv/status]
+        U3[/ugv/heartbeat]
+        U4[/ugv/steering_angle]
+    end
+    
+    subgraph System["⚙️ System Topics"]
+        Y1[/robot/health]
+        Y2[/tf]
+        Y3[/tf_static]
+    end
+```
+
+### Topic Details
+
+| Topic | Type | Rate | Publisher | Subscriber | Description |
+|-------|------|------|-----------|------------|-------------|
+| `/camera/color/image_raw` | Image | 10 Hz | camera_node | rgbd_node | Color image |
+| `/camera/depth/image_raw` | Image | 10 Hz | camera_node | rgbd_node | Depth image |
+| `/camera/depth/points` | PointCloud2 | 10 Hz | camera_node | p2l_node | Point cloud |
+| `/orbslam3/camera_pose` | PoseStamped | 30 Hz | rgbd_node | slam_odom_bridge | SLAM pose |
+| `/odom` | Odometry | 20 Hz | slam_odom_bridge | Nav2 | Robot odometry |
+| `/scan` | LaserScan | 10 Hz | p2l_node | Nav2 | 2D laser scan |
+| `/cmd_vel` | Twist | 10 Hz | controller_server | twist_to_ackermann | Velocity command |
+| `/ackermann_cmd` | AckermannDriveStamped | 20 Hz | twist_to_ackermann | micro_ros_agent | Ackermann command |
+| `/ugv/status` | String | 10 Hz | ESP32 | - | Status string |
+| `/ugv/heartbeat` | Bool | 10 Hz | ESP32 | - | Heartbeat |
+| `/ugv/steering_angle` | Float32 | 20 Hz | ESP32 | twist_to_ackermann | Actual steering |
+| `/robot/health` | String | 1 Hz | health_monitor | - | System health |
+| `/goal_pose` | PoseStamped | - | User/RViz | bt_navigator | Navigation goal |
+
+---
+
+## 7. TF Tree
+
+### Transform Hierarchy
+
+```mermaid
+graph TB
+    MAP[map]
+    ODOM[odom]
+    BASE[base_link]
+    CAMERA[camera_link]
+    DEPTH[camera_depth_frame]
+    COLOR[camera_color_frame]
+    FLWHEEL[front_left_wheel]
+    FRWHEEL[front_right_wheel]
+    RLWHEEL[rear_left_wheel]
+    RRWHEEL[rear_right_wheel]
+    
+    MAP -->|slam_toolbox| ODOM
+    ODOM -->|slam_odom_bridge| BASE
+    BASE -->|static| CAMERA
+    CAMERA -->|camera_driver| DEPTH
+    CAMERA -->|camera_driver| COLOR
+    BASE -->|joint_publisher| FLWHEEL
+    BASE -->|joint_publisher| FRWHEEL
+    BASE -->|joint_publisher| RLWHEEL
+    BASE -->|joint_publisher| RRWHEEL
+```
+
+### Transform Publishers
+
+| Transform | Publisher | Rate | Type |
+|-----------|-----------|------|------|
+| map → odom | slam_toolbox | 20 Hz | Dynamic |
+| odom → base_link | slam_odom_bridge | 20 Hz | Dynamic |
+| base_link → camera_link | static_transform_publisher | - | Static |
+| camera_link → depth_frame | camera_node | - | Static |
+| base_link → wheels | smart_joint_publisher | 10 Hz | Dynamic |
+
+---
+
+## 8. Data Flow Diagrams
+
+### Perception Pipeline
+
+```mermaid
+sequenceDiagram
+    participant Cam as Camera
+    participant ORB as ORB-SLAM3
+    participant Bridge as slam_odom_bridge
+    participant Nav as Nav2
+    participant P2L as pointcloud_to_laserscan
+    
+    Cam->>ORB: RGB + Depth Images
+    Cam->>P2L: PointCloud2
+    ORB->>Bridge: camera_pose
+    Bridge->>Nav: /odom
+    Bridge->>Nav: TF (odom→base)
+    P2L->>Nav: /scan
+    Nav->>Nav: Update Costmaps
+```
+
+### Navigation Pipeline
+
+```mermaid
+sequenceDiagram
+    participant User as User/RViz
+    participant BT as bt_navigator
+    participant Plan as planner_server
+    participant Ctrl as controller_server
+    participant Ack as twist_to_ackermann
+    participant Agent as micro_ros_agent
+    participant ESP as ESP32
+    
+    User->>BT: /goal_pose
+    BT->>Plan: ComputePath
+    Plan->>Plan: Hybrid A* Search
+    Plan->>BT: Path
+    BT->>Ctrl: FollowPath
+    loop Control Loop (10Hz)
+        Ctrl->>Ctrl: Pure Pursuit
+        Ctrl->>Ack: /cmd_vel
+        Ack->>Ack: Convert to Ackermann
+        Ack->>Agent: /ackermann_cmd
+        Agent->>ESP: USB Serial
+        ESP->>ESP: PID Control
+    end
+```
+
+### Safety Pipeline
+
+```mermaid
+sequenceDiagram
+    participant ORB as ORB-SLAM3
+    participant HM as health_monitor
+    participant Ack as twist_to_ackermann
+    participant ESP as ESP32
+    
+    loop Monitor (1Hz)
+        HM->>HM: Check SLAM Tracking
+        alt SLAM Lost
+            HM->>Ack: Stop Signal
+            Ack->>ESP: Zero Velocity
+        else SLAM OK
+            HM->>HM: Continue
+        end
+    end
+    
+    loop ESP32 (100Hz)
+        ESP->>ESP: Check cmd_vel Age
+        alt Timeout > 500ms
+            ESP->>ESP: Stop Motors
+        end
+        ESP->>ESP: Check Limit Switches
+        alt Limit Hit
+            ESP->>ESP: E-Stop
+        end
+    end
+```
+
+---
+
+## 9. Firmware Architecture
+
+### ESP32 Main Loop
+
+```mermaid
+flowchart TB
+    START[loop start]
+    WDT[Feed Watchdog]
+    SPIN[Spin micro-ROS Executor]
+    
+    subgraph Control["Control Loop @ 100Hz"]
+        TIMEOUT{Cmd Timeout?}
+        STOP1[Stop Motors]
+        ERROR[Check Error States]
+        ESTOP{E-Stop Active?}
+        UPDATE[Update Controllers]
+    end
+    
+    subgraph Publish["Publishing"]
+        HB[Heartbeat @ 10Hz]
+        SA[Steering Angle @ 20Hz]
+        ST[Status @ 10Hz]
+    end
+    
+    subgraph Display["Display @ 5Hz"]
+        DSP[Update OLED]
+    end
+    
+    START --> WDT
+    WDT --> SPIN
+    SPIN --> TIMEOUT
+    TIMEOUT -->|Yes| STOP1
+    TIMEOUT -->|No| ERROR
+    STOP1 --> ERROR
+    ERROR --> ESTOP
+    ESTOP -->|Yes| HB
+    ESTOP -->|No| UPDATE
+    UPDATE --> HB
+    HB --> SA
+    SA --> ST
+    ST --> DSP
+    DSP --> START
+```
+
+### Steering Controller Logic
+
+```mermaid
+flowchart LR
+    subgraph Input
+        TARGET[Target Angle]
+        ENCODER[Encoder Reading]
+    end
+    
+    subgraph PID["PID Controller"]
+        ERROR[Calculate Error]
+        P[P Term]
+        I[I Term]
+        D[D Term]
+        SUM[Sum]
+    end
+    
+    subgraph Safety
+        CLAMP[Clamp ±20°]
+        LIMIT{Limit Switch?}
+        STOP[Stop Motor]
+    end
+    
+    subgraph Output
+        PWM[PWM Output]
+        MOTOR[Steering Motor]
+    end
+    
+    TARGET --> ERROR
+    ENCODER --> ERROR
+    ERROR --> P
+    ERROR --> I
+    ERROR --> D
+    P --> SUM
+    I --> SUM
+    D --> SUM
+    SUM --> CLAMP
+    CLAMP --> LIMIT
+    LIMIT -->|Yes| STOP
+    LIMIT -->|No| PWM
+    STOP --> PWM
+    PWM --> MOTOR
+```
+
+### OLED Display Layout
+
+```
+┌────────────────────────────┐ Y=0
+│ READY/RUNNING/TIMEOUT      │ Row 1: Mode (large)
+├────────────────────────────┤ Y=20
+│ ROS:OK  Cmd:234ms          │ Row 2: Connection
+├────────────────────────────┤ Y=32
+│ Steer:5.0/5.0              │ Row 3: Steering
+├────────────────────────────┤ Y=42
+│ Speed:0.25m/s    E:1234    │ Row 4: Speed+Encoder
+├────────────────────────────┤ Y=54
+│ L:OK  R:OK      [IDLE]     │ Row 5: Limits+Status
+└────────────────────────────┘ Y=64
+```
+
+---
+
+## 10. Control Logic
+
+### Ackermann Kinematics
+
+```mermaid
+graph LR
+    subgraph Input
+        V[Linear Velocity v]
+        W[Angular Velocity ω]
+    end
+    
+    subgraph Calculation
+        K["κ = ω / v<br/>(curvature)"]
+        D["δ = atan(L × κ)<br/>(steering angle)"]
+    end
+    
+    subgraph Limits
+        CLAMP["δ ∈ [-20°, +20°]"]
+        VMAX["v ∈ [-0.5, +0.5] m/s"]
+    end
+    
+    subgraph Feedback
+        SA[/ugv/steering_angle]
+        ERR[Steering Error]
+        SLOW[Speed Reduction]
+    end
+    
+    V --> K
+    W --> K
+    K --> D
+    D --> CLAMP
+    CLAMP --> VMAX
+    SA --> ERR
+    ERR -->|"> 5°"| SLOW
+    SLOW --> VMAX
+```
+
+**Formulas:**
+
+| Parameter | Formula | Description |
+|-----------|---------|-------------|
+| Curvature | κ = ω / v | Instantaneous curvature |
+| Steering Angle | δ = atan(L × κ) | L = wheelbase (0.6m) |
+| Turn Radius | R = L / tan(δ) | Minimum ~1.65m |
+| Speed Factor | f = max(0.3, 1 - error/15) | Steering feedback |
+
+### PID Tuning (Steering)
+
+```
+Kp = 2.5    (Proportional gain)
+Ki = 0.1    (Integral gain)
+Kd = 0.5    (Derivative gain)
+```
+
+---
+
+## 11. Safety Systems
+
+### Safety Hierarchy
+
+```mermaid
+flowchart TB
+    subgraph L1["Level 1: Hardware"]
+        LS[Limit Switches]
+        ES[Emergency Stop Button]
+    end
+    
+    subgraph L2["Level 2: Firmware"]
+        TO[Command Timeout 500ms]
+        SC[Steering Clamp ±20°]
+        WD[ESP32 Watchdog]
+    end
+    
+    subgraph L3["Level 3: ROS2"]
+        HM[Health Monitor]
+        RT[Recovery Timeout 5min]
+        SF[Steering Feedback Speed Limit]
+    end
+    
+    subgraph L4["Level 4: Navigation"]
+        OA[Obstacle Avoidance]
+        RB[Recovery Behaviors]
+        GC[Goal Checker]
+    end
+    
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
+```
+
+### Safety Response Table
+
+| Condition | Detection | Response | Recovery |
+|-----------|-----------|----------|----------|
+| SLAM Lost | health_monitor | Stop robot | Wait for tracking |
+| Limit Switch | ESP32 GPIO | E-Stop, center steering | Manual reset |
+| Command Timeout | ESP32 500ms | Stop motors | Automatic on cmd |
+| Obstacle | Nav2 Costmap | Replan path | Automatic |
+| Goal Unreachable | Nav2 | Recovery behaviors | Retry or abort |
+| Steering Lag | twist_to_ackermann | Reduce speed | Automatic |
+
+---
+
+## 12. Command Reference
+
+### Launch Commands
+
+```bash
+# Full system launch
+ros2 launch robot_bringup system.launch.py use_micro_ros:=true
+
+# With RViz visualization
+ros2 launch robot_bringup system.launch.py use_rviz:=true
+
+# SLAM only (no navigation)
+ros2 launch perception_vslam vslam_bringup.launch.py
+
+# Navigation only
+ros2 launch nav2_bringup_ack nav2_bringup.launch.py
+```
+
+### Topic Commands
+
+```bash
+# Send velocity command
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}, angular: {z: 0.0}}"
+
+# Send navigation goal
+ros2 topic pub /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 0.0}, orientation: {w: 1.0}}}"
+
+# Monitor ESP32 status
+ros2 topic echo /ugv/status
+
+# Check steering angle
+ros2 topic echo /ugv/steering_angle
+
+# Monitor health
+ros2 topic echo /robot/health
+```
+
+### Service Commands
+
+```bash
+# Clear costmaps
+ros2 service call /global_costmap/clear_entirely_global_costmap nav2_msgs/srv/ClearEntireCostmap
+
+# Cancel navigation
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{}" --cancel
+```
+
+### Firmware Commands
+
+```bash
+# Build firmware
+cd ~/robot_ws/firmware && pio run
+
+# Upload firmware
+cd ~/robot_ws/firmware && pio run --target upload
+
+# Monitor serial
+cd ~/robot_ws/firmware && pio device monitor
+```
+
+---
+
+## 13. Configuration Files
+
+### Key Configuration Files
+
+| File | Purpose | Key Parameters |
+|------|---------|----------------|
+| `nav2_params.yaml` | Navigation tuning | speeds, tolerances, costmap |
+| `tuning.yaml` | System parameters | timeouts, rates |
+| `ackermann.rviz` | RViz config | visualization |
+| `platformio.ini` | Firmware config | board, libs |
+| `pin_config.h` | ESP32 pins | GPIO assignments |
+
+### Nav2 Parameters Summary
+
+```yaml
+# Planner (Hybrid A*)
+planner_server:
+  minimum_turning_radius: 1.65  # meters
+  
+# Controller (Pure Pursuit)
+controller_server:
+  desired_linear_vel: 0.3
+  max_angular_vel: 0.5
+  lookahead_dist: 0.8
+  
+# Costmaps
+inflation_radius: 0.55
+robot_radius: 0.6
+```
+
+### ESP32 Pin Assignment
+
+```
+Steering Motor: GPIO 25 (LPWM), GPIO 26 (RPWM)
+Driving Motor:  GPIO 32 (LPWM), GPIO 33 (RPWM)
+Encoder A:      GPIO 34
+Encoder B:      GPIO 35
+Left Limit:     GPIO 16
+Right Limit:    GPIO 17
+I2C SDA:        GPIO 21
+I2C SCL:        GPIO 22
+```
+
+---
+
+## Appendix A: Message Types
+
+### geometry_msgs/Twist
+```
+Vector3 linear (x, y, z)
+Vector3 angular (x, y, z)
+```
+
+### ackermann_msgs/AckermannDriveStamped
+```
+Header header
+AckermannDrive drive:
+  - steering_angle (rad)
+  - steering_angle_velocity
+  - speed (m/s)
+  - acceleration
+  - jerk
+```
+
+### std_msgs/Float32
+```
+float32 data
+```
+
+---
+
+## Appendix B: Coordinate Frames
+
+| Frame | Origin | X-axis | Z-axis |
+|-------|--------|--------|--------|
+| map | World origin | East | Up |
+| odom | Robot start | Forward | Up |
+| base_link | Robot center | Forward | Up |
+| camera_link | Camera mount | Forward | Up |
+| camera_depth_frame | Depth sensor | Right | Forward |
+
+---
+
+*Document Version: 1.0*  
+*Last Updated: December 2024*
