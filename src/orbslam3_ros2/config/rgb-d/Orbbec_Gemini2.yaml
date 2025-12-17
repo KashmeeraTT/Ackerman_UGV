@@ -47,15 +47,14 @@ Stereo.b: 0.10
 RGBD.DepthMapFactor: 1000.0
 
 # --------------------------------------------------------------------------------------------
-# ORB Parameters
-# (these are generic; tune if needed for your setup)
+# ORB Parameters (TUNED for better tracking)
 # --------------------------------------------------------------------------------------------
 
-ORBextractor.nFeatures: 800
+ORBextractor.nFeatures: 1500      # Increased from 800 for more robust tracking
 ORBextractor.scaleFactor: 1.2
-ORBextractor.nLevels: 6
-ORBextractor.iniThFAST: 20
-ORBextractor.minThFAST: 7
+ORBextractor.nLevels: 8           # Increased from 6 for multi-scale detection
+ORBextractor.iniThFAST: 15        # Lowered from 20 to detect features in low-texture areas
+ORBextractor.minThFAST: 5         # Lowered from 7 for more keypoints in challenging scenes
 
 # --------------------------------------------------------------------------------------------
 # Viewer Parameters

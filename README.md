@@ -107,6 +107,45 @@ ros2 run rviz2 rviz2 -d src/robot_bringup/rviz/robot.rviz
 ```
 
 ## 6. Troubleshooting
-- **No Map**: Ensure SLAM is tracking (check debug window if enabled).
-- **TF Error**: Verify `static_transform_publisher` is running for camera link.
-- **Robot Stalls**: Check `cmd_vel` output and safety limits in `nav2_params.yaml`.
+
+| Issue | Possible Cause | Solution |
+|-------|---------------|----------|
+| **No Map** | SLAM not tracking | Check ORB-SLAM debug window, ensure good lighting |
+| **TF Error** | Missing transform | Run `ros2 run tf2_tools view_frames` to diagnose |
+| **Robot Stalls** | Safety limits | Check `/robot/health` topic and `nav2_params.yaml` |
+| **Nav2 Not Active** | Lifecycle failure | Check `ros2 lifecycle list /controller_server` |
+| **SAFE STOP Triggered** | SLAM tracking lost | Relocate robot to textured area, restart SLAM |
+
+## 7. Production Deployment
+
+### Pre-Deployment Checklist
+- [ ] Run integration tests: `ros2 run robot_bringup test_system_integration.py`
+- [ ] Verify health monitor: `ros2 topic echo /robot/health`
+- [ ] Check diagnostics: `ros2 topic echo /diagnostics`
+- [ ] Test safe-stop: Cover camera briefly, verify robot stops
+
+### Health Monitoring
+The `health_monitor` node provides:
+- **`/robot/health`**: Simple status (`OK`, `DEGRADED`, `STOPPED`)
+- **`/diagnostics`**: Standard ROS2 diagnostics with SLAM status
+- **Safe-stop**: Automatic velocity zeroing when SLAM is lost
+
+### Parameter Tuning
+Key parameters to tune for your environment:
+
+| Parameter | File | Default | Notes |
+|-----------|------|---------|-------|
+| `minimum_turning_radius` | `nav2_params.yaml` | 1.5m | Match actual robot kinematics |
+| `controller_frequency` | `nav2_params.yaml` | 10Hz | Increase for faster response |
+| `odom_timeout` | `system.launch.py` | 2.0s | Safe-stop trigger delay |
+| `transform_tolerance` | `nav2_params.yaml` | 0.5s | TF lookup tolerance |
+
+### Running Integration Tests
+```bash
+# After launching the system, in a new terminal:
+source install/setup.bash
+ros2 run robot_bringup test_system_integration.py
+```
+
+Expected output: All TF frames and topics should show PASS.
+

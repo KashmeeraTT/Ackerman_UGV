@@ -30,17 +30,15 @@ def generate_launch_description():
         # Static TF base_link -> camera_link
         # Static TF base_link -> camera_link REMOVED (Handled by URDF)
 
-        # Static TF map -> odom (Identity)
-        # Required because slam_odom_bridge generally bridges odom->base_link
-        # and we need to link map->odom for Nav2 global costmap in map frame.
-        # Static TF map -> odom
-        # REMOVED: Managed by slam_toolbox
-        # Node(
-        #     package='tf2_ros',
-        #     executable='static_transform_publisher',
-        #     name='static_map_odom_tf',
-        #     arguments=['0','0','0','0','0','0','map','odom']
-        # ),
+        # Static TF map -> odom (Identity fallback)
+        # This provides a valid map->odom TF until SLAM Toolbox starts providing it.
+        # Ensures Nav2 can activate without TF errors.
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_map_odom_tf',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+        ),
 
         # ORB-SLAM3
         Node(

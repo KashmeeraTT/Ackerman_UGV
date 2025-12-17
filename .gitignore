@@ -1,4 +1,33 @@
+# ROS2 Workspace - .gitignore
+
+# Build artifacts
 build/
 install/
 log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Debug files
+*.log
+*.gv
+KeyFrameTrajectory.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.orig

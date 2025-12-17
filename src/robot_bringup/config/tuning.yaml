@@ -1,0 +1,75 @@
+# =============================================================================
+# Robot Tuning Parameters - Consolidated Configuration
+# =============================================================================
+# 
+# This file provides quick access to commonly tuned parameters.
+# Actual values are stored in their respective config files.
+# Edit this as a reference guide for field tuning.
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# VSLAM TRACKING (Orbbec_Gemini2.yaml)
+# -----------------------------------------------------------------------------
+# Location: src/orbslam3_ros2/config/rgb-d/Orbbec_Gemini2.yaml
+
+vslam:
+  nFeatures: 1500          # Number of ORB features (800-2000)
+  nLevels: 8               # Pyramid levels (6-8)
+  iniThFAST: 15            # Initial FAST threshold (10-25, lower = more features)
+  minThFAST: 5             # Minimum FAST threshold (3-10)
+
+# -----------------------------------------------------------------------------
+# SCAN PROCESSING (mapping.launch.py)
+# -----------------------------------------------------------------------------  
+# Location: src/perception_vslam/launch/mapping.launch.py
+
+scan:
+  range_min: 0.3           # Minimum detection range (meters)
+  range_max: 6.0           # Maximum detection range (meters)
+  angle_increment: 0.0175  # Angular resolution (~1 degree)
+  scan_time: 0.1           # Scan update period (seconds)
+
+# -----------------------------------------------------------------------------
+# NAVIGATION (nav2_params.yaml)
+# -----------------------------------------------------------------------------
+# Location: src/nav2_bringup_ack/config/nav2_params.yaml
+
+navigation:
+  # Planner
+  minimum_turning_radius: 1.5    # Minimum turn radius (meters)
+  max_planning_time: 5.0         # Planner timeout (seconds)
+  
+  # Controller
+  controller_frequency: 10.0     # Control loop rate (Hz)
+  desired_linear_vel: 0.4        # Target forward speed (m/s)
+  
+  # Goal tolerance
+  xy_goal_tolerance: 0.3         # Position tolerance (meters)
+  yaw_goal_tolerance: 0.25       # Orientation tolerance (radians)
+  
+  # Costmap
+  obstacle_max_range: 5.5        # Obstacle detection range (meters)
+  inflation_radius: 0.80         # Inflation radius (meters)
+  cost_scaling_factor: 2.5       # Inflation falloff rate
+
+# -----------------------------------------------------------------------------
+# HEALTH MONITORING (system.launch.py)
+# -----------------------------------------------------------------------------
+# Location: src/robot_bringup/launch/system.launch.py
+
+health:
+  odom_timeout: 2.0              # SLAM loss detection (seconds)
+  safe_stop_enabled: true        # Enable auto-stop on SLAM loss
+
+# -----------------------------------------------------------------------------
+# ACKERMANN KINEMATICS (params.yaml)
+# -----------------------------------------------------------------------------
+# Location: src/ackermann_bridge_demo/ackermann_bridge_demo/params.yaml
+
+ackermann:
+  wheelbase_m: 0.60              # Front to rear axle distance (meters)
+  track_width_m: 1.16            # Distance between wheels on same axle (meters)
+  max_steer_deg: 20.0            # Maximum steering angle (degrees)
+  max_speed_mps: 0.50            # Maximum speed (m/s)
+  max_accel_mps2: 0.60           # Maximum acceleration (m/s²)

@@ -6,18 +6,21 @@ from launch.actions import IncludeLaunchDescription, ExecuteProcess, RegisterEve
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 
 def generate_launch_description():
     pkg_robot_bringup = get_package_share_directory('robot_bringup')
+    fastdds_config = os.path.join(pkg_robot_bringup, 'config', 'fastdds_no_shm.xml')
     pkg_perception_vslam = get_package_share_directory('perception_vslam')
     pkg_nav2_bringup = get_package_share_directory('nav2_bringup_ack')
 
     # Launch Configurations
     use_rviz = LaunchConfiguration('use_rviz')
     use_micro_ros = LaunchConfiguration('use_micro_ros')
+    
+    set_fastdds_env = SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', fastdds_config)
     
     declare_use_rviz = DeclareLaunchArgument(
         'use_rviz',
@@ -112,7 +115,21 @@ def generate_launch_description():
         condition=IfCondition(use_rviz)
     )
 
+    # Health Monitor (Production monitoring)
+    health_monitor_node = Node(
+        package='robot_bringup',
+        executable='health_monitor.py',
+        name='health_monitor',
+        output='screen',
+        parameters=[{
+            'odom_timeout': 2.0,
+            'safe_stop_enabled': True,
+            'diagnostics_rate': 1.0
+        }]
+    )
+
     return LaunchDescription([
+        set_fastdds_env,
         declare_use_rviz,
         declare_use_micro_ros,
         declare_serial_port,
@@ -122,5 +139,7 @@ def generate_launch_description():
         nav2_launch,
         ackermann_bridge_launch,
         micro_ros_agent,
-        rviz_node
+        rviz_node,
+        health_monitor_node
     ])
+

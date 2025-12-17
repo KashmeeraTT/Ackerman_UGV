@@ -5,6 +5,8 @@
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
 #include <std_msgs/msg/string.h>
+#include <std_msgs/msg/bool.h>
+#include <std_msgs/msg/float32.h>
 #include <esp_task_wdt.h>
 
 #include "DrivingController.h"
@@ -44,6 +46,18 @@ geometry_msgs__msg__Twist cmd_vel_msg;
 rcl_publisher_t status_publisher;
 std_msgs__msg__String status_msg;
 
+// Heartbeat publisher (for fail-safe monitoring)
+rcl_publisher_t heartbeat_publisher;
+std_msgs__msg__Bool heartbeat_msg;
+unsigned long lastHeartbeatPublish = 0;
+const unsigned long HEARTBEAT_PERIOD_MS = 100;  // 10Hz heartbeat
+
+// Steering angle publisher (for navigation feedback)
+rcl_publisher_t steering_angle_publisher;
+std_msgs__msg__Float32 steering_angle_msg;
+unsigned long lastSteeringAnglePublish = 0;
+const unsigned long STEERING_ANGLE_PERIOD_MS = 50;  // 20Hz for smooth feedback
+
 char status_buffer[256];
 
 // OLED Display
@@ -63,6 +77,8 @@ unsigned long lastDisplayUpdate = 0;
 const unsigned long CONTROL_PERIOD_MS = 10;  // 100Hz control loop
 const unsigned long STATUS_PERIOD_MS = 100;  // 10Hz status publishing
 const unsigned long DISPLAY_PERIOD_MS = 200; // 5Hz display update
+const unsigned long CMD_TIMEOUT_MS = 500;    // 500ms command timeout - SAFETY CRITICAL
+bool cmdTimeoutActive = false;               // Track timeout state for display
 
 // System state
 bool systemInitialized = false;
@@ -130,7 +146,7 @@ void cmdVelCallback(const void *msgin) {
   if (abs(linearVel) > 0.01) {
     // Estimate steering angle from angular/linear velocity ratio
     // Adjust the scaling factor based on your UGV's geometry
-    const float WHEELBASE = 0.4; // meters (adjust to your UGV)
+    const float WHEELBASE = 0.6; // meters (front to rear axle distance)
     steeringAngle = atan(angularVel * WHEELBASE / linearVel) * (180.0 / PI);
   } else if (abs(angularVel) > 0.01) {
     // Pure rotation - use maximum steering
@@ -185,6 +201,22 @@ bool setupMicroROS() {
     return false;
   }
 
+  // Create heartbeat publisher (Bool for fail-safe monitoring)
+  if (rclc_publisher_init_default(
+          &heartbeat_publisher, &node,
+          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
+          "/ugv/heartbeat") != RCL_RET_OK) {
+    return false;
+  }
+
+  // Create steering angle publisher (Float32 for navigation feedback)
+  if (rclc_publisher_init_default(
+          &steering_angle_publisher, &node,
+          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
+          "/ugv/steering_angle") != RCL_RET_OK) {
+    return false;
+  }
+
   // Create executor
   if (rclc_executor_init(&executor, &support.context, 1, &allocator) !=
       RCL_RET_OK) {
@@ -201,6 +233,12 @@ bool setupMicroROS() {
   // Initialize status message
   status_msg.data.data = status_buffer;
   status_msg.data.capacity = sizeof(status_buffer);
+  
+  // Initialize heartbeat message
+  heartbeat_msg.data = true;
+  
+  // Initialize steering angle message
+  steering_angle_msg.data = 0.0;
 
   return true;
 }
@@ -380,7 +418,37 @@ void performCalibration() {
       display.println(F("SUCCESS!"));
       display.setTextSize(1);
       display.setCursor(0, 45);
-      display.println(F("Ready for ROS2"));
+      display.println(F("Centering steering..."));
+      display.display();
+    }
+    
+    // ========================================
+    // STARTUP DEFAULT STATE: Center steering and stop motors
+    // ========================================
+    Serial.println("Setting default startup state...");
+    steeringController.setTargetAngle(0.0);  // Center steering
+    drivingController.stop();                // Stop driving motor
+    
+    // Wait for steering to reach center
+    unsigned long centerStart = millis();
+    while (abs(steeringController.getCurrentAngle()) > 1.0 && (millis() - centerStart < 3000)) {
+      steeringController.update();
+      delay(10);
+    }
+    
+    Serial.println("✓ Steering centered at 0 degrees");
+    Serial.println("✓ Motors stopped");
+    
+    if (oledFound) {
+      display.clearDisplay();
+      display.setTextSize(2);
+      display.setCursor(0, 0);
+      display.println(F("READY!"));
+      display.setTextSize(1);
+      display.setCursor(0, 25);
+      display.println(F("Steering: CENTERED"));
+      display.println(F("Motors: STOPPED"));
+      display.println(F("Waiting for ROS2..."));
       display.display();
     }
     
@@ -853,45 +921,96 @@ void updateDisplay() {
     return;
 
   display.clearDisplay();
-  display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  
+  // ========================================
+  // ROW 1 (Y=0-15): MODE in large text
+  // 128px width, using size 2 font (12x16 px per char)
+  // ========================================
+  display.setTextSize(2);
   display.setCursor(0, 0);
-
+  
   if (emergencyStopActive) {
-    displayError("EMERGENCY STOP");
-    return;
+    display.print(F("! E-STOP !"));
+  } else if (cmdTimeoutActive) {
+    display.print(F("TIMEOUT"));
+  } else if (!systemInitialized) {
+    display.print(F("INIT..."));
+  } else if (cmdVelReceived && (millis() - lastCmdVelTime < 500)) {
+    display.print(F("RUNNING"));
+  } else {
+    display.print(F("READY"));
   }
-
-  // Header
-  display.println(F("UGV STATUS"));
-  display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
-
-  display.setCursor(0, 15);
-
-  // Calibration state
-  display.print(F("Cal: "));
-  display.println(steeringController.getCalibrationStateString());
-
-  // Steering info with encoder feedback
-  display.print(F("Ang: "));
+  
+  // ========================================
+  // ROW 2 (Y=18-28): Connection + Command Age
+  // ========================================
+  display.setTextSize(1);  // 6x8 px per char
+  display.setCursor(0, 20);
+  
+  if (cmdVelReceived) {
+    unsigned long age = millis() - lastCmdVelTime;
+    display.print(F("ROS:"));
+    if (age < 2000) {
+      display.print(F("OK "));
+    } else {
+      display.print(F("-- "));
+    }
+    display.print(F("Cmd:"));
+    if (age < 1000) {
+      display.print(age);
+      display.print(F("ms"));
+    } else {
+      display.print(age / 1000);
+      display.print(F("s"));
+    }
+  } else {
+    display.print(F("ROS:-- Cmd:waiting"));
+  }
+  
+  // ========================================
+  // ROW 3 (Y=30-38): Steering angle
+  // ========================================
+  display.setCursor(0, 32);
+  display.print(F("Steer:"));
   display.print(steeringController.getCurrentAngle(), 1);
   display.print(F("/"));
-  display.println(steeringController.getTargetAngle(), 1);
-
-  // Encoder count
-  display.print(F("Enc: "));
-  display.println(steeringController.getEncoderCount());
-
-  // Velocity
-  display.print(F("Vel: "));
-  display.println(drivingController.getCurrentVelocity(), 2);
-
-  // Limit switches
-  displayLimitSwitchStatus();
-
-  // Connectivity
-  displayConnectivityStatus();
-
+  display.print(steeringController.getTargetAngle(), 1);
+  
+  // ========================================
+  // ROW 4 (Y=42-50): Speed
+  // ========================================
+  display.setCursor(0, 42);
+  display.print(F("Speed:"));
+  display.print(drivingController.getCurrentVelocity(), 2);
+  display.print(F("m/s"));
+  
+  // Encoder on right side
+  display.setCursor(80, 42);
+  display.print(F("E:"));
+  display.print(steeringController.getEncoderCount());
+  
+  // ========================================
+  // ROW 5 (Y=54-62): Status bar with limits
+  // ========================================
+  display.setCursor(0, 54);
+  display.print(F("L:"));
+  display.print(steeringController.getLeftLimitState() ? "HIT" : "OK ");
+  display.print(F(" R:"));
+  display.print(steeringController.getRightLimitState() ? "HIT" : "OK ");
+  
+  // Status indicator on right
+  display.setCursor(90, 54);
+  if (emergencyStopActive) {
+    display.print(F("[STOP]"));
+  } else if (cmdTimeoutActive) {
+    display.print(F("[TOUT]"));
+  } else if (cmdVelReceived && (millis() - lastCmdVelTime < 500)) {
+    display.print(F("[ GO ]"));
+  } else {
+    display.print(F("[IDLE]"));
+  }
+  
   display.display();
 }
 
@@ -1084,11 +1203,42 @@ void loop() {
   if (currentTime - lastControlUpdate >= CONTROL_PERIOD_MS) {
     lastControlUpdate = currentTime;
 
+    // ========================================
+    // SAFETY: Command timeout check
+    // Stop motors if no cmd_vel received for CMD_TIMEOUT_MS
+    // ========================================
+    if (cmdVelReceived && (currentTime - lastCmdVelTime > CMD_TIMEOUT_MS)) {
+      if (!cmdTimeoutActive) {
+        // First timeout detection - stop motors
+        drivingController.stop();
+        steeringController.setTargetAngle(0.0);  // Center steering
+        cmdTimeoutActive = true;
+        Serial.println("⚠ SAFETY: Command timeout - motors stopped");
+      }
+    } else if (cmdVelReceived) {
+      // Commands are flowing - clear timeout
+      cmdTimeoutActive = false;
+    }
+
     checkErrorStates();
 
-    if (systemInitialized && !emergencyStopActive) {
+    if (systemInitialized && !emergencyStopActive && !cmdTimeoutActive) {
       updateControllers();
     }
+  }
+
+  // Heartbeat publishing (10Hz)
+  if (currentTime - lastHeartbeatPublish >= HEARTBEAT_PERIOD_MS) {
+    lastHeartbeatPublish = currentTime;
+    heartbeat_msg.data = true;
+    rcl_publish(&heartbeat_publisher, &heartbeat_msg, NULL);
+  }
+
+  // Steering angle publishing (20Hz for smooth navigation feedback)
+  if (currentTime - lastSteeringAnglePublish >= STEERING_ANGLE_PERIOD_MS) {
+    lastSteeringAnglePublish = currentTime;
+    steering_angle_msg.data = steeringController.getCurrentAngle();
+    rcl_publish(&steering_angle_publisher, &steering_angle_msg, NULL);
   }
 
   // Status publishing

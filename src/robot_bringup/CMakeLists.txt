@@ -12,10 +12,18 @@ install(DIRECTORY launch description rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(PROGRAMS scripts/dummy_joint_publisher.py scripts/smart_joint_publisher.py
+install(PROGRAMS 
+  scripts/dummy_joint_publisher.py 
+  scripts/smart_joint_publisher.py 
+  scripts/scan_relay.py
+  scripts/health_monitor.py
+  test/test_system_integration.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 
 if(BUILD_TESTING)
