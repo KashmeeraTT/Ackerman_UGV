@@ -465,40 +465,33 @@ sequenceDiagram
 flowchart TB
     START[Loop Start]
     WDT[Feed Watchdog]
-    SPIN[Spin micro-ROS Executor]
+    SPIN[Spin micro-ROS]
     
-    subgraph Control[Control Loop 100Hz]
-        TIMEOUT{Cmd Timeout?}
+    subgraph Control[Control 100Hz]
+        TIMEOUT{Timeout?}
         STOP1[Stop Motors]
-        ERROR[Check Error States]
-        ESTOP{E-Stop Active?}
-        UPDATE[Update Controllers]
+        ESTOP{E-Stop?}
+        UPDATE[Update Motors]
     end
     
-    subgraph Publish[Publishing]
+    subgraph Parallel[Parallel Tasks]
         HB[Heartbeat 10Hz]
-        SA[Steering Angle 20Hz]
+        SA[Steering 20Hz]
         ST[Status 10Hz]
-    end
-    
-    subgraph Display[Display 5Hz]
-        DSP[Update OLED]
+        DSP[Display 5Hz]
     end
     
     START --> WDT
     WDT --> SPIN
-    SPIN --> TIMEOUT
+    SPIN --> Control
+    SPIN --> Parallel
     TIMEOUT -->|Yes| STOP1
-    TIMEOUT -->|No| ERROR
-    STOP1 --> ERROR
-    ERROR --> ESTOP
-    ESTOP -->|Yes| HB
+    TIMEOUT -->|No| ESTOP
+    STOP1 --> ESTOP
+    ESTOP -->|Yes| START
     ESTOP -->|No| UPDATE
-    UPDATE --> HB
-    HB --> SA
-    SA --> ST
-    ST --> DSP
-    DSP --> START
+    UPDATE --> START
+    Parallel --> START
 ```
 
 ### Steering Controller Logic
@@ -624,33 +617,31 @@ Kd = 0.5    (Derivative gain)
 ### Safety Hierarchy
 
 ```mermaid
-flowchart TB
+flowchart BT
     subgraph L1[Level 1 Hardware]
         LS[Limit Switches]
-        ES[Emergency Stop Button]
+        ES[Emergency Stop]
     end
     
     subgraph L2[Level 2 Firmware]
-        TO[Command Timeout 500ms]
-        SC[Steering Clamp 20deg]
-        WD[ESP32 Watchdog]
+        TO[Timeout 500ms]
+        SC[Clamp 20deg]
+        WD[Watchdog]
     end
     
     subgraph L3[Level 3 ROS2]
         HM[Health Monitor]
-        RT[Recovery Timeout 5min]
-        SF[Steering Feedback Speed Limit]
+        SF[Speed Limit]
     end
     
     subgraph L4[Level 4 Navigation]
-        OA[Obstacle Avoidance]
-        RB[Recovery Behaviors]
-        GC[Goal Checker]
+        OA[Obstacle Avoid]
+        RB[Recovery]
     end
     
-    L4 -.-> L3
-    L3 -.-> L2
-    L2 -.-> L1
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
 ```
 
 ### Safety Response Table
