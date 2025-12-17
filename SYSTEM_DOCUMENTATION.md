@@ -33,9 +33,9 @@ The Ackermann UGV is an autonomous ground vehicle using:
 ```mermaid
 graph TB
     subgraph HW[Hardware Layer]
-        CAM[Orbbec Gemini 2L - RGB-D Camera]
+        CAM[Orbbec Gemini 2L Camera]
         ESP[ESP32 Motor Controller]
-        STEER[Steering Motor + Encoder]
+        STEER[Steering Motor and Encoder]
         DRIVE[Drive Motor]
         OLED[OLED Display]
     end
@@ -61,7 +61,7 @@ graph TB
     DRIVE --> MOTION
     ESP --> OLED
     VSLAM -.-> HEALTH
-    HEALTH -.->|Stop if lost| BRIDGE
+    HEALTH -.-> BRIDGE
 ```
 
 ---
@@ -76,7 +76,7 @@ flowchart TB
         Camera[Orbbec Gemini 2L RGB-D 10fps]
         ESP32[ESP32 Motor Controller]
         Motors[BTS7960 Drivers]
-        Sensors[Encoder + Limits]
+        Sensors[Encoder and Limits]
         Display[OLED 128x64]
     end
     
@@ -89,11 +89,11 @@ flowchart TB
     end
     
     subgraph Navigation[Navigation Layer]
-        Planner[planner_server - Hybrid A*]
-        Controller[controller_server - Pure Pursuit]
+        Planner[planner_server HybridA]
+        Controller[controller_server PurePursuit]
         BT[bt_navigator]
         Behavior[behavior_server]
-        Costmap[Costmaps Global + Local]
+        Costmap[Costmaps]
     end
     
     subgraph Control[Control Layer]
@@ -126,7 +126,7 @@ flowchart TB
     Controller --> AckBridge
     
     ORBSLAM -.-> HealthMon
-    HealthMon -.->|SLAM Lost: Stop| AckBridge
+    HealthMon -.-> AckBridge
     
     AckBridge --> MicroROS
     MicroROS --> MainLoop
@@ -521,7 +521,7 @@ flowchart LR
     subgraph Safety[Safety]
         CLAMP[Clamp to 20 deg]
         LIMIT{Limit Switch?}
-        STOP[STOP - PWM = 0]
+        STOP[STOP Motor]
     end
     
     subgraph Output[Output]
@@ -570,24 +570,24 @@ flowchart LR
 ```mermaid
 graph LR
     subgraph Input[Input]
-        V[Linear Velocity v]
-        W[Angular Velocity w]
+        V[Linear Vel]
+        W[Angular Vel]
     end
     
     subgraph Calc[Calculation]
-        K[kappa = w / v curvature]
-        D[delta = atan L x kappa steering angle]
+        K[Curvature kappa]
+        D[Steering delta]
     end
     
     subgraph Limits[Limits]
-        CLAMP[delta in minus20 to plus20 deg]
-        VMAX[v in minus0.5 to plus0.5 m/s]
+        CLAMP[Clamp 20 deg]
+        VMAX[Max 0.5 mps]
     end
     
     subgraph Feedback[Feedback]
-        SA[ugv_steering_angle]
-        ERR[Steering Error]
-        SLOW[Speed Reduction]
+        SA[Actual Angle]
+        ERR[Error Check]
+        SLOW[Speed Limit]
     end
     
     V --> K
@@ -596,7 +596,7 @@ graph LR
     D --> CLAMP
     CLAMP --> VMAX
     SA --> ERR
-    ERR -->|over 5 deg| SLOW
+    ERR --> SLOW
     SLOW --> VMAX
 ```
 
@@ -648,9 +648,9 @@ flowchart TB
         GC[Goal Checker]
     end
     
-    L4 -.->|Triggers if blocked| L3
-    L3 -.->|Triggers if SLAM lost| L2
-    L2 -.->|Triggers if limit hit| L1
+    L4 -.-> L3
+    L3 -.-> L2
+    L2 -.-> L1
 ```
 
 ### Safety Response Table
