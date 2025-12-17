@@ -32,22 +32,22 @@ The Ackermann UGV is an autonomous ground vehicle using:
 
 ```mermaid
 graph TB
-    subgraph "Hardware Layer"
-        CAM[Orbbec Gemini 2L<br/>RGB-D Camera]
-        ESP[ESP32<br/>Motor Controller]
-        STEER[Steering Motor<br/>+ Encoder]
+    subgraph HW[Hardware Layer]
+        CAM[Orbbec Gemini 2L - RGB-D Camera]
+        ESP[ESP32 Motor Controller]
+        STEER[Steering Motor + Encoder]
         DRIVE[Drive Motor]
         OLED[OLED Display]
     end
     
-    subgraph "ROS2 Layer"
+    subgraph ROS[ROS2 Layer]
         VSLAM[ORB-SLAM3]
         NAV[Nav2 Stack]
         BRIDGE[Ackermann Bridge]
         HEALTH[Health Monitor]
     end
     
-    subgraph "Output"
+    subgraph OUT[Output]
         MOTION[Robot Motion]
     end
     
@@ -71,42 +71,41 @@ graph TB
 
 ```mermaid
 flowchart TB
-    subgraph Hardware["🔧 Hardware Layer"]
-        direction LR
-        Camera["📷 Orbbec Gemini 2L<br/>RGB-D @ 10fps"]
-        ESP32["🎛️ ESP32<br/>Motor Controller"]
-        Motors["⚙️ BTS7960 Drivers<br/>Steering + Drive"]
-        Sensors["📊 Sensors<br/>Encoder + Limits"]
-        Display["🖥️ OLED 128x64"]
+    subgraph Hardware[Hardware Layer]
+        Camera[Orbbec Gemini 2L RGB-D 10fps]
+        ESP32[ESP32 Motor Controller]
+        Motors[BTS7960 Drivers]
+        Sensors[Encoder + Limits]
+        Display[OLED 128x64]
     end
     
-    subgraph Perception["👁️ Perception Layer"]
-        OrbCamera["orbbec_camera<br/>Camera Driver"]
-        PointCloud["pointcloud_to_laserscan<br/>3D→2D Conversion"]
-        ORBSLAM["orbslam3<br/>Visual SLAM"]
-        SlamBridge["slam_odom_bridge<br/>Pose → Odom + TF"]
-        SlamToolbox["slam_toolbox<br/>2D SLAM Backup"]
+    subgraph Perception[Perception Layer]
+        OrbCamera[orbbec_camera]
+        PointCloud[pointcloud_to_laserscan]
+        ORBSLAM[orbslam3 Visual SLAM]
+        SlamBridge[slam_odom_bridge]
+        SlamToolbox[slam_toolbox 2D SLAM]
     end
     
-    subgraph Navigation["🗺️ Navigation Layer"]
-        Planner["planner_server<br/>Hybrid A* Planner"]
-        Controller["controller_server<br/>Pure Pursuit"]
-        BT["bt_navigator<br/>Behavior Tree"]
-        Behavior["behavior_server<br/>Recovery Behaviors"]
-        Costmap["Costmaps<br/>Global + Local"]
+    subgraph Navigation[Navigation Layer]
+        Planner[planner_server - Hybrid A*]
+        Controller[controller_server - Pure Pursuit]
+        BT[bt_navigator]
+        Behavior[behavior_server]
+        Costmap[Costmaps Global + Local]
     end
     
-    subgraph Control["🎮 Control Layer"]
-        AckBridge["twist_to_ackermann<br/>Twist → Ackermann"]
-        MicroROS["micro_ros_agent<br/>USB Serial Bridge"]
-        HealthMon["health_monitor<br/>Safety Watchdog"]
+    subgraph Control[Control Layer]
+        AckBridge[twist_to_ackermann]
+        MicroROS[micro_ros_agent]
+        HealthMon[health_monitor]
     end
     
-    subgraph Firmware["💾 ESP32 Firmware"]
-        MainLoop["Main Loop<br/>100Hz Control"]
-        SteerCtrl["Steering Controller<br/>PID + Encoder"]
-        DriveCtrl["Driving Controller<br/>PWM Control"]
-        Publishers["micro-ROS<br/>Publishers"]
+    subgraph Firmware[ESP32 Firmware]
+        MainLoop[Main Loop 100Hz]
+        SteerCtrl[Steering PID]
+        DriveCtrl[Drive PWM]
+        Publishers[micro-ROS Publishers]
     end
     
     Camera --> OrbCamera
@@ -163,7 +162,7 @@ flowchart TB
 | Steering Driver | BTS7960 | PWM | Steering motor |
 | Drive Driver | BTS7960 | PWM | Drive motor |
 | Steering Encoder | Rotary Encoder | GPIO | Position feedback |
-| Limit Switches | NO Switches (x2) | GPIO | End stops |
+| Limit Switches | NO Switches x2 | GPIO | End stops |
 | Display | SSD1306 OLED | I2C | Status display |
 
 ---
@@ -174,12 +173,12 @@ flowchart TB
 
 ```mermaid
 graph LR
-    subgraph Core["Core Packages"]
+    subgraph Core[Core Packages]
         RB[robot_bringup]
         UT[ugv_teleop]
     end
     
-    subgraph Perception["Perception"]
+    subgraph Perception[Perception]
         PV[perception_vslam]
         OS[orbslam3_ros2]
         OC[OrbbecSDK_ROS2]
@@ -187,16 +186,16 @@ graph LR
         SB[slam_odom_bridge]
     end
     
-    subgraph Navigation["Navigation"]
+    subgraph Nav[Navigation]
         NB[nav2_bringup_ack]
     end
     
-    subgraph Control["Control"]
+    subgraph Ctrl[Control]
         AB[ackermann_bridge_demo]
         AM[ackermann_msgs]
     end
     
-    subgraph Communication["Communication"]
+    subgraph Comm[Communication]
         MA[micro-ROS-Agent]
         MM[micro_ros_msgs]
     end
@@ -235,29 +234,29 @@ graph LR
 
 ```mermaid
 graph TB
-    subgraph Drivers["Driver Nodes"]
+    subgraph Drivers[Driver Nodes]
         RSP[robot_state_publisher]
         STP[static_transform_publisher]
         CAM[camera_node]
         MRA[micro_ros_agent]
     end
     
-    subgraph SLAM["SLAM Nodes"]
-        ORB[rgbd_node<br/>ORB-SLAM3]
+    subgraph SLAM[SLAM Nodes]
+        ORB[rgbd_node ORB-SLAM3]
         SOB[slam_odom_bridge]
         STB[async_slam_toolbox_node]
         P2L[pointcloud_to_laserscan_node]
     end
     
-    subgraph Nav2["Navigation Nodes"]
+    subgraph Nav2[Navigation Nodes]
         CS[controller_server]
         PS[planner_server]
         BS[behavior_server]
-        BT[bt_navigator]
+        BTN[bt_navigator]
         LM[lifecycle_manager]
     end
     
-    subgraph Control["Control Nodes"]
+    subgraph CtrlNodes[Control Nodes]
         T2A[twist_to_ackermann]
         HM[health_monitor]
         SJP[smart_joint_publisher]
@@ -286,39 +285,39 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph Camera["📷 Camera Topics"]
-        C1[/camera/color/image_raw]
-        C2[/camera/depth/image_raw]
-        C3[/camera/depth/points]
-        C4[/camera/color/camera_info]
+    subgraph CamTopics[Camera Topics]
+        C1[camera_color_image_raw]
+        C2[camera_depth_image_raw]
+        C3[camera_depth_points]
+        C4[camera_color_camera_info]
     end
     
-    subgraph SLAM["🗺️ SLAM Topics"]
-        S1[/orbslam3/camera_pose]
-        S2[/odom]
-        S3[/scan]
-        S4[/map]
+    subgraph SLAMTopics[SLAM Topics]
+        S1[orbslam3_camera_pose]
+        S2[odom]
+        S3[scan]
+        S4[map]
     end
     
-    subgraph Nav["🧭 Navigation Topics"]
-        N1[/goal_pose]
-        N2[/plan]
-        N3[/cmd_vel]
-        N4[/local_costmap/costmap]
-        N5[/global_costmap/costmap]
+    subgraph NavTopics[Navigation Topics]
+        N1[goal_pose]
+        N2[plan]
+        N3[cmd_vel]
+        N4[local_costmap]
+        N5[global_costmap]
     end
     
-    subgraph UGV["🚗 UGV Topics"]
-        U1[/ackermann_cmd]
-        U2[/ugv/status]
-        U3[/ugv/heartbeat]
-        U4[/ugv/steering_angle]
+    subgraph UGVTopics[UGV Topics]
+        U1[ackermann_cmd]
+        U2[ugv_status]
+        U3[ugv_heartbeat]
+        U4[ugv_steering_angle]
     end
     
-    subgraph System["⚙️ System Topics"]
-        Y1[/robot/health]
-        Y2[/tf]
-        Y3[/tf_static]
+    subgraph SysTopics[System Topics]
+        Y1[robot_health]
+        Y2[tf]
+        Y3[tf_static]
     end
 ```
 
@@ -397,9 +396,9 @@ sequenceDiagram
     Cam->>ORB: RGB + Depth Images
     Cam->>P2L: PointCloud2
     ORB->>Bridge: camera_pose
-    Bridge->>Nav: /odom
-    Bridge->>Nav: TF (odom→base)
-    P2L->>Nav: /scan
+    Bridge->>Nav: odom
+    Bridge->>Nav: TF odom to base
+    P2L->>Nav: scan
     Nav->>Nav: Update Costmaps
 ```
 
@@ -407,7 +406,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant User as User/RViz
+    participant User as User or RViz
     participant BT as bt_navigator
     participant Plan as planner_server
     participant Ctrl as controller_server
@@ -415,16 +414,16 @@ sequenceDiagram
     participant Agent as micro_ros_agent
     participant ESP as ESP32
     
-    User->>BT: /goal_pose
+    User->>BT: goal_pose
     BT->>Plan: ComputePath
     Plan->>Plan: Hybrid A* Search
     Plan->>BT: Path
     BT->>Ctrl: FollowPath
-    loop Control Loop (10Hz)
+    loop Control Loop 10Hz
         Ctrl->>Ctrl: Pure Pursuit
-        Ctrl->>Ack: /cmd_vel
+        Ctrl->>Ack: cmd_vel
         Ack->>Ack: Convert to Ackermann
-        Ack->>Agent: /ackermann_cmd
+        Ack->>Agent: ackermann_cmd
         Agent->>ESP: USB Serial
         ESP->>ESP: PID Control
     end
@@ -439,7 +438,7 @@ sequenceDiagram
     participant Ack as twist_to_ackermann
     participant ESP as ESP32
     
-    loop Monitor (1Hz)
+    loop Monitor 1Hz
         HM->>HM: Check SLAM Tracking
         alt SLAM Lost
             HM->>Ack: Stop Signal
@@ -449,9 +448,9 @@ sequenceDiagram
         end
     end
     
-    loop ESP32 (100Hz)
+    loop ESP32 100Hz
         ESP->>ESP: Check cmd_vel Age
-        alt Timeout > 500ms
+        alt Timeout over 500ms
             ESP->>ESP: Stop Motors
         end
         ESP->>ESP: Check Limit Switches
@@ -469,11 +468,11 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    START[loop start]
+    START[Loop Start]
     WDT[Feed Watchdog]
     SPIN[Spin micro-ROS Executor]
     
-    subgraph Control["Control Loop @ 100Hz"]
+    subgraph Control[Control Loop 100Hz]
         TIMEOUT{Cmd Timeout?}
         STOP1[Stop Motors]
         ERROR[Check Error States]
@@ -481,13 +480,13 @@ flowchart TB
         UPDATE[Update Controllers]
     end
     
-    subgraph Publish["Publishing"]
-        HB[Heartbeat @ 10Hz]
-        SA[Steering Angle @ 20Hz]
-        ST[Status @ 10Hz]
+    subgraph Publish[Publishing]
+        HB[Heartbeat 10Hz]
+        SA[Steering Angle 20Hz]
+        ST[Status 10Hz]
     end
     
-    subgraph Display["Display @ 5Hz"]
+    subgraph Display[Display 5Hz]
         DSP[Update OLED]
     end
     
@@ -511,12 +510,12 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    subgraph Input
+    subgraph Input[Input]
         TARGET[Target Angle]
         ENCODER[Encoder Reading]
     end
     
-    subgraph PID["PID Controller"]
+    subgraph PID[PID Controller]
         ERROR[Calculate Error]
         P[P Term]
         I[I Term]
@@ -524,13 +523,13 @@ flowchart LR
         SUM[Sum]
     end
     
-    subgraph Safety
-        CLAMP[Clamp ±20°]
+    subgraph Safety[Safety]
+        CLAMP[Clamp plus minus 20 deg]
         LIMIT{Limit Switch?}
         STOP[Stop Motor]
     end
     
-    subgraph Output
+    subgraph Output[Output]
         PWM[PWM Output]
         MOTOR[Steering Motor]
     end
@@ -554,17 +553,17 @@ flowchart LR
 ### OLED Display Layout
 
 ```
-┌────────────────────────────┐ Y=0
-│ READY/RUNNING/TIMEOUT      │ Row 1: Mode (large)
-├────────────────────────────┤ Y=20
-│ ROS:OK  Cmd:234ms          │ Row 2: Connection
-├────────────────────────────┤ Y=32
-│ Steer:5.0/5.0              │ Row 3: Steering
-├────────────────────────────┤ Y=42
-│ Speed:0.25m/s    E:1234    │ Row 4: Speed+Encoder
-├────────────────────────────┤ Y=54
-│ L:OK  R:OK      [IDLE]     │ Row 5: Limits+Status
-└────────────────────────────┘ Y=64
++----------------------------+ Y=0
+| READY/RUNNING/TIMEOUT      | Row 1: Mode (large)
++----------------------------+ Y=20
+| ROS:OK  Cmd:234ms          | Row 2: Connection
++----------------------------+ Y=32
+| Steer:5.0/5.0              | Row 3: Steering
++----------------------------+ Y=42
+| Speed:0.25m/s    E:1234    | Row 4: Speed+Encoder
++----------------------------+ Y=54
+| L:OK  R:OK      [IDLE]     | Row 5: Limits+Status
++----------------------------+ Y=64
 ```
 
 ---
@@ -575,23 +574,23 @@ flowchart LR
 
 ```mermaid
 graph LR
-    subgraph Input
+    subgraph Input[Input]
         V[Linear Velocity v]
-        W[Angular Velocity ω]
+        W[Angular Velocity w]
     end
     
-    subgraph Calculation
-        K["κ = ω / v<br/>(curvature)"]
-        D["δ = atan(L × κ)<br/>(steering angle)"]
+    subgraph Calc[Calculation]
+        K[kappa = w / v curvature]
+        D[delta = atan L x kappa steering angle]
     end
     
-    subgraph Limits
-        CLAMP["δ ∈ [-20°, +20°]"]
-        VMAX["v ∈ [-0.5, +0.5] m/s"]
+    subgraph Limits[Limits]
+        CLAMP[delta in minus20 to plus20 deg]
+        VMAX[v in minus0.5 to plus0.5 m/s]
     end
     
-    subgraph Feedback
-        SA[/ugv/steering_angle]
+    subgraph Feedback[Feedback]
+        SA[ugv_steering_angle]
         ERR[Steering Error]
         SLOW[Speed Reduction]
     end
@@ -602,7 +601,7 @@ graph LR
     D --> CLAMP
     CLAMP --> VMAX
     SA --> ERR
-    ERR -->|"> 5°"| SLOW
+    ERR -->|over 5 deg| SLOW
     SLOW --> VMAX
 ```
 
@@ -631,24 +630,24 @@ Kd = 0.5    (Derivative gain)
 
 ```mermaid
 flowchart TB
-    subgraph L1["Level 1: Hardware"]
+    subgraph L1[Level 1 Hardware]
         LS[Limit Switches]
         ES[Emergency Stop Button]
     end
     
-    subgraph L2["Level 2: Firmware"]
+    subgraph L2[Level 2 Firmware]
         TO[Command Timeout 500ms]
-        SC[Steering Clamp ±20°]
+        SC[Steering Clamp 20deg]
         WD[ESP32 Watchdog]
     end
     
-    subgraph L3["Level 3: ROS2"]
+    subgraph L3[Level 3 ROS2]
         HM[Health Monitor]
         RT[Recovery Timeout 5min]
         SF[Steering Feedback Speed Limit]
     end
     
-    subgraph L4["Level 4: Navigation"]
+    subgraph L4[Level 4 Navigation]
         OA[Obstacle Avoidance]
         RB[Recovery Behaviors]
         GC[Goal Checker]
@@ -766,42 +765,44 @@ robot_radius: 0.6
 
 ### ESP32 Pin Assignment
 
-```
-Steering Motor: GPIO 25 (LPWM), GPIO 26 (RPWM)
-Driving Motor:  GPIO 32 (LPWM), GPIO 33 (RPWM)
-Encoder A:      GPIO 34
-Encoder B:      GPIO 35
-Left Limit:     GPIO 16
-Right Limit:    GPIO 17
-I2C SDA:        GPIO 21
-I2C SCL:        GPIO 22
-```
+| Function | GPIO Pin |
+|----------|----------|
+| Steering LPWM | GPIO 25 |
+| Steering RPWM | GPIO 26 |
+| Driving LPWM | GPIO 32 |
+| Driving RPWM | GPIO 33 |
+| Encoder A | GPIO 34 |
+| Encoder B | GPIO 35 |
+| Left Limit | GPIO 16 |
+| Right Limit | GPIO 17 |
+| I2C SDA | GPIO 21 |
+| I2C SCL | GPIO 22 |
 
 ---
 
 ## Appendix A: Message Types
 
 ### geometry_msgs/Twist
-```
-Vector3 linear (x, y, z)
-Vector3 angular (x, y, z)
-```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| linear.x | float64 | Forward velocity (m/s) |
+| linear.y | float64 | Lateral velocity (m/s) |
+| linear.z | float64 | Vertical velocity (m/s) |
+| angular.x | float64 | Roll rate (rad/s) |
+| angular.y | float64 | Pitch rate (rad/s) |
+| angular.z | float64 | Yaw rate (rad/s) |
 
 ### ackermann_msgs/AckermannDriveStamped
-```
-Header header
-AckermannDrive drive:
-  - steering_angle (rad)
-  - steering_angle_velocity
-  - speed (m/s)
-  - acceleration
-  - jerk
-```
 
-### std_msgs/Float32
-```
-float32 data
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| header | Header | Timestamp and frame |
+| drive.steering_angle | float32 | Steering angle (rad) |
+| drive.steering_angle_velocity | float32 | Steering rate |
+| drive.speed | float32 | Speed (m/s) |
+| drive.acceleration | float32 | Acceleration |
+| drive.jerk | float32 | Jerk |
 
 ---
 
