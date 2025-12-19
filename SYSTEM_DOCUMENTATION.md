@@ -150,8 +150,8 @@ flowchart TB
 |-----------|-------|------|
 | Wheelbase | 0.60 | m |
 | Track Width | 1.16 | m |
-| Max Steering Angle | ±20 | degrees |
-| Min Turn Radius | 1.65 | m |
+| Max Steering Angle | ±10 | degrees |
+| Min Turn Radius | 3.40 | m |
 | Max Speed | 0.5 | m/s |
 | Max Acceleration | 0.6 | m/s² |
 
@@ -512,7 +512,7 @@ flowchart LR
     end
     
     subgraph Safety[Safety]
-        CLAMP[Clamp to 20 deg]
+        CLAMP[Clamp to 10 deg]
         LIMIT{Limit Switch?}
         STOP[STOP Motor]
     end
@@ -573,7 +573,7 @@ graph LR
     end
     
     subgraph Limits[Limits]
-        CLAMP[Clamp 20 deg]
+        CLAMP[Clamp 10 deg]
         VMAX[Max 0.5 mps]
     end
     
@@ -599,7 +599,7 @@ graph LR
 |-----------|---------|-------------|
 | Curvature | κ = ω / v | Instantaneous curvature |
 | Steering Angle | δ = atan(L × κ) | L = wheelbase (0.6m) |
-| Turn Radius | R = L / tan(δ) | Minimum ~1.65m |
+| Turn Radius | R = L / tan(δ) | Minimum ~3.40m |
 | Speed Factor | f = max(0.3, 1 - error/15) | Steering feedback |
 
 ### PID Tuning (Steering)
@@ -625,7 +625,7 @@ flowchart BT
     
     subgraph L2[Level 2 Firmware]
         TO[Timeout 500ms]
-        SC[Clamp 20deg]
+        SC[Clamp 10deg]
         WD[Watchdog]
     end
     
@@ -736,7 +736,7 @@ cd ~/robot_ws/firmware && pio device monitor
 ```yaml
 # Planner (Hybrid A*)
 planner_server:
-  minimum_turning_radius: 1.65  # meters
+  minimum_turning_radius: 3.40  # meters
   
 # Controller (Pure Pursuit)
 controller_server:

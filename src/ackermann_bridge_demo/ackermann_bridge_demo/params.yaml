@@ -2,7 +2,7 @@ twist_to_ack:
   ros__parameters:
     wheelbase_m: 0.6      # Front to rear axle distance (meters)
     track_width_m: 1.16   # Distance between wheels on same axle (meters)
-    max_steer_deg: 20.0   # Maximum steering angle (degrees)
+    max_steer_deg: 10.0   # Maximum steering angle (degrees)
     max_speed_mps: 0.50
     max_accel_mps2: 0.60
     cmd_timeout_sec: 0.2

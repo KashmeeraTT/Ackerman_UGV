@@ -71,8 +71,8 @@ steeringBindings = {
     'a': -2,      # Decrease steering angle by 2 degrees
     'd': 2,       # Increase steering angle by 2 degrees
     's': 0,       # Center steering (0 degrees)
-    'h': -20,     # Full left
-    'y': 20,      # Full right
+    'h': -10,     # Full left
+    'y': 10,      # Full right
 }
 
 # Speed adjustment keys
@@ -118,10 +118,10 @@ class TeleopKeyboard(Node):
         self.th = 0.0
         
         # Steering angle control (in degrees)
-        # -20 to +20 degrees based on UGV steering range
+        # -10 to +10 degrees based on UGV steering range
         self.steering_angle = 0.0
-        self.max_steering_angle = 20.0
-        self.min_steering_angle = -20.0
+        self.max_steering_angle = 10.0
+        self.min_steering_angle = -10.0
         
         # Control state
         self.status = 0

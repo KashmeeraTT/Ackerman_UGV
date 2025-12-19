@@ -37,7 +37,7 @@ scan:
 
 navigation:
   # Planner
-  minimum_turning_radius: 1.65   # Minimum turn radius (meters) = wheelbase/tan(20°)
+  minimum_turning_radius: 3.40   # Minimum turn radius (meters) = wheelbase/tan(10°)
   max_planning_time: 5.0         # Planner timeout (seconds)
   
   # Controller
@@ -70,6 +70,6 @@ health:
 ackermann:
   wheelbase_m: 0.60              # Front to rear axle distance (meters)
   track_width_m: 1.16            # Distance between wheels on same axle (meters)
-  max_steer_deg: 20.0            # Maximum steering angle (degrees)
+  max_steer_deg: 10.0            # Maximum steering angle (degrees)
   max_speed_mps: 0.50            # Maximum speed (m/s)
   max_accel_mps2: 0.60           # Maximum acceleration (m/s²)

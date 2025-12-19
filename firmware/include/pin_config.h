@@ -24,8 +24,10 @@
 #define RIGHT_ENCODER_B_PIN 19 // General GPIO
 
 // Limit Switches - Interrupt capable pins with internal pull-up
-#define LIMIT_SWITCH_LEFT 32  // Left limit switch (active LOW)
-#define LIMIT_SWITCH_RIGHT 33 // Right limit switch (active LOW)
+#define LIMIT_SWITCH_LEFT 32  // Left limit switch
+#define LIMIT_SWITCH_RIGHT 33 // Right limit switch
+// Set to 1 if switches read LOW when NOT pressed (normally-closed type)
+#define LIMIT_SWITCH_ACTIVE_HIGH 1
 
 // PWM Configuration
 #define PWM_FREQUENCY 1000 // 1 kHz PWM frequency
@@ -49,8 +51,8 @@
 #define PULSES_PER_DEGREE (PULSES_PER_10_DEGREES / 10.0) // 50 pulses per degree
 
 // Steering Safety Limits
-#define MAX_STEERING_ANGLE_DEG 20.0  // Maximum steering angle (degrees)
-#define MIN_STEERING_ANGLE_DEG -20.0 // Minimum steering angle (degrees)
+#define MAX_STEERING_ANGLE_DEG 10.0  // Maximum steering angle (degrees)
+#define MIN_STEERING_ANGLE_DEG -10.0 // Minimum steering angle (degrees)
 
 // Calibration Configuration
 #define CALIBRATION_SPEED 100        // PWM value during calibration

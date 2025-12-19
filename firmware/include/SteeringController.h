@@ -7,6 +7,9 @@
 #include <PID_v1.h>
 #include <Preferences.h>
 
+// Motor direction inversion: set to -1 if motor goes wrong direction
+#define STEERING_MOTOR_INVERT -1
+
 /**
  * @brief Steering controller with encoder feedback and safety limits
  *
@@ -28,18 +31,20 @@ public:
 
   SteeringController(MotorDriver &motor)
       : motor_(motor), encoderCount_(0), centerEncoderCount_(0),
-        targetAngle_(0.0), currentAngle_(0.0), pidOutput_(0.0),
-        calibrationState_(NOT_CALIBRATED), leftLimitHit_(false),
-        rightLimitHit_(false), emergencyStop_(false),
-        startupGracePeriodEnabled_(false),
-        lastLeftLimitTime_(0), lastRightLimitTime_(0),
-        pid_(&currentAngle_, &pidOutput_, &targetAngle_, 2.0, 0.5, 0.1,
+        targetAngle_(0.0), smoothedTargetAngle_(0.0), currentAngle_(0.0),
+        filteredAngle_(0.0), pidOutput_(0.0), calibrationState_(NOT_CALIBRATED),
+        leftLimitHit_(false), rightLimitHit_(false), emergencyStop_(false),
+        startupGracePeriodEnabled_(false), lastLeftLimitTime_(0),
+        lastRightLimitTime_(0), lastUpdateTime_(0),
+        pid_(&currentAngle_, &pidOutput_, &smoothedTargetAngle_, 2.5, 0.1, 0.5,
              DIRECT) {
 
     // PID configuration
     pid_.SetMode(AUTOMATIC);
-    pid_.SetOutputLimits(-MAX_PWM_VALUE, MAX_PWM_VALUE);
-    pid_.SetSampleTime(10); // 10ms sample time
+    pid_.SetOutputLimits(-MAX_PWM_VALUE * 0.95,
+                         MAX_PWM_VALUE *
+                             0.95); // Leave headroom for anti-windup
+    pid_.SetSampleTime(10);         // 10ms sample time
   }
 
   /**
@@ -67,13 +72,24 @@ public:
     pinMode(LIMIT_SWITCH_LEFT, INPUT_PULLUP);
     pinMode(LIMIT_SWITCH_RIGHT, INPUT_PULLUP);
 
-    // Attach limit switch interrupts on FALLING edge (when switch is pressed)
+    // Attach limit switch interrupts
+#if LIMIT_SWITCH_ACTIVE_HIGH
+    // NC switches: trigger on RISING edge (LOW→HIGH when pressed)
+    attachInterrupt(
+        digitalPinToInterrupt(LIMIT_SWITCH_LEFT),
+        []() { instance_->handleLeftLimitISR(); }, RISING);
+    attachInterrupt(
+        digitalPinToInterrupt(LIMIT_SWITCH_RIGHT),
+        []() { instance_->handleRightLimitISR(); }, RISING);
+#else
+    // NO switches: trigger on FALLING edge (HIGH→LOW when pressed)
     attachInterrupt(
         digitalPinToInterrupt(LIMIT_SWITCH_LEFT),
         []() { instance_->handleLeftLimitISR(); }, FALLING);
     attachInterrupt(
         digitalPinToInterrupt(LIMIT_SWITCH_RIGHT),
         []() { instance_->handleRightLimitISR(); }, FALLING);
+#endif
 
     // Load calibration from memory
     loadCalibration();
@@ -81,7 +97,7 @@ public:
 
   /**
    * @brief Main update loop - call this regularly (10ms recommended)
-   * Updates PID control and motor output
+   * Updates PID control and motor output with rate limiting and filtering
    */
   void update() {
     if (emergencyStop_) {
@@ -93,25 +109,46 @@ public:
       return; // Don't control until calibrated
     }
 
-    // Update current angle from encoder
+    // Calculate dt for rate limiting
+    unsigned long now = millis();
+    float dt = (now - lastUpdateTime_) / 1000.0f;
+    if (dt <= 0)
+      dt = 0.01f; // Prevent division by zero
+    lastUpdateTime_ = now;
+
+    // Update current angle from encoder with EMA filter
     updateCurrentAngle();
 
-    // Clamp target angle to safe limits
-    targetAngle_ =
-        constrain(targetAngle_, MIN_STEERING_ANGLE_DEG, MAX_STEERING_ANGLE_DEG);
+    // Apply steering rate limiting to smooth target changes
+    // Max rate: 30 degrees per second
+    const float MAX_STEER_RATE = 30.0f; // deg/sec
+    float maxChange = MAX_STEER_RATE * dt;
+    float delta = targetAngle_ - smoothedTargetAngle_;
+    delta = constrain(delta, -maxChange, maxChange);
+    smoothedTargetAngle_ += delta;
 
-    // Additional safety: If at limit and trying to go further, zero target to stop
-    if ((currentAngle_ >= MAX_STEERING_ANGLE_DEG - 0.5 && targetAngle_ > currentAngle_) ||
-        (currentAngle_ <= MIN_STEERING_ANGLE_DEG + 0.5 && targetAngle_ < currentAngle_)) {
-      // At limit and trying to go past it - clamp target to current
-      targetAngle_ = currentAngle_;
+    // Clamp smoothed target to safe limits
+    smoothedTargetAngle_ = constrain(
+        smoothedTargetAngle_, MIN_STEERING_ANGLE_DEG, MAX_STEERING_ANGLE_DEG);
+
+    // Additional safety: If at limit and trying to go further, stop
+    if ((currentAngle_ >= MAX_STEERING_ANGLE_DEG - 0.5 &&
+         smoothedTargetAngle_ > currentAngle_) ||
+        (currentAngle_ <= MIN_STEERING_ANGLE_DEG + 0.5 &&
+         smoothedTargetAngle_ < currentAngle_)) {
+      smoothedTargetAngle_ = currentAngle_;
     }
 
     // Compute PID
     pid_.Compute();
 
+    // Anti-windup: if output is saturated, prevent integral buildup
+    if (abs(pidOutput_) >= MAX_PWM_VALUE * 0.9) {
+      // Near saturation - PID library handles this via output limits
+    }
+
     // Apply motor command
-    motor_.setSpeed((int16_t)pidOutput_);
+    motor_.setSpeed((int16_t)(pidOutput_ * STEERING_MOTOR_INVERT));
   }
 
   /**
@@ -139,61 +176,93 @@ public:
   float getTargetAngle() const { return targetAngle_; }
 
   /**
-   * @brief Perform calibration routine
+   * @brief Perform calibration routine with timeout protection
    * Moves to both limits and finds center
-   *
-   * @return true if calibration successful
+   * @return true if calibration successful, false if timeout
    */
   bool calibrate() {
+    // Uses CALIBRATION_TIMEOUT_MS from pin_config.h
+
     calibrationState_ = CALIBRATING;
     emergencyStop_ = false;
     leftLimitHit_ = false;
     rightLimitHit_ = false;
 
-    // Step 1: Move left until limit switch (NO TIMEOUT - wait indefinitely)
-    motor_.setSpeed(-CALIBRATION_SPEED);
-    while (!leftLimitHit_) {
+    Serial.println("Calibration: Moving to LEFT limit...");
+    unsigned long startTime = millis();
+
+    // Step 1: Move left until limit switch (with timeout)
+    motor_.setSpeed(-CALIBRATION_SPEED * STEERING_MOTOR_INVERT);
+    while (!leftLimitHit_ && (millis() - startTime < CALIBRATION_TIMEOUT_MS)) {
       delay(10);
     }
     motor_.stop();
+
+    if (!leftLimitHit_) {
+      Serial.println("ERROR: LEFT limit timeout! Check wiring.");
+      calibrationState_ = CALIBRATION_ERROR;
+      return false;
+    }
 
     long leftLimitCount = encoderCount_;
-    delay(500);
+    Serial.print("  LEFT OK. Encoder: ");
+    Serial.println(leftLimitCount);
+    delay(300);
 
-    // Step 2: Move right until limit switch (NO TIMEOUT - wait indefinitely)
+    // Step 2: Move right until limit switch (with timeout)
     leftLimitHit_ = false;
     rightLimitHit_ = false;
+    startTime = millis();
 
-    motor_.setSpeed(CALIBRATION_SPEED);
-    while (!rightLimitHit_) {
+    Serial.println("Calibration: Moving to RIGHT limit...");
+    motor_.setSpeed(CALIBRATION_SPEED * STEERING_MOTOR_INVERT);
+    while (!rightLimitHit_ && (millis() - startTime < CALIBRATION_TIMEOUT_MS)) {
       delay(10);
     }
     motor_.stop();
+
+    if (!rightLimitHit_) {
+      Serial.println("ERROR: RIGHT limit timeout! Check wiring.");
+      calibrationState_ = CALIBRATION_ERROR;
+      return false;
+    }
 
     long rightLimitCount = encoderCount_;
-    delay(500);
+    Serial.print("  RIGHT OK. Encoder: ");
+    Serial.println(rightLimitCount);
+    delay(300);
 
-    // Step 3: Calculate center position
+    // Step 3: Calculate center and show results
     centerEncoderCount_ = (leftLimitCount + rightLimitCount) / 2;
+    long totalRange = rightLimitCount - leftLimitCount;
 
-    // Step 4: Move to center
+    Serial.println("\n=== CALIBRATION RESULTS ===");
+    Serial.print("Range: ");
+    Serial.print(totalRange);
+    Serial.println(" pulses (20deg)");
+    Serial.print("Pulses/10deg: ");
+    Serial.println(totalRange / 2);
+    Serial.println("===========================\n");
+
+    // Step 4: Move to center (with timeout)
+    Serial.println("Moving to center...");
     rightLimitHit_ = false;
-    motor_.setSpeed(-CALIBRATION_SPEED / 2);
-    while (encoderCount_ > centerEncoderCount_ + 10) {
+    startTime = millis();
+    motor_.setSpeed(-CALIBRATION_SPEED / 2 * STEERING_MOTOR_INVERT);
+    while (encoderCount_ > centerEncoderCount_ + 10 &&
+           (millis() - startTime < CALIBRATION_TIMEOUT_MS)) {
       delay(10);
     }
     motor_.stop();
 
-    // Reset encoder count to 0 at center
+    // Reset encoder to 0 at center
     encoderCount_ = 0;
     centerEncoderCount_ = 0;
-
-    // Save calibration to memory
     saveCalibration();
 
     calibrationState_ = CALIBRATED;
     emergencyStop_ = false;
-
+    Serial.println("Calibration complete!");
     return true;
   }
 
@@ -321,29 +390,54 @@ public:
   // Static instance pointer for ISR access
   static SteeringController *instance_;
 
+  /**
+   * @brief Clear saved calibration to force fresh calibration
+   */
+  void clearCalibration() {
+    preferences_.begin("steering", false);
+    preferences_.clear();
+    preferences_.end();
+    calibrationState_ = NOT_CALIBRATED;
+    centerEncoderCount_ = 0;
+    Serial.println("Calibration cleared - will recalibrate on next boot");
+  }
+
 private:
   MotorDriver &motor_;
   volatile long encoderCount_;
   long centerEncoderCount_;
-  double targetAngle_;
-  double currentAngle_;
+  double targetAngle_;         // Raw target from setTargetAngle()
+  double smoothedTargetAngle_; // Rate-limited target fed to PID
+  double currentAngle_;        // Filtered current angle
+  double filteredAngle_;       // EMA filtered angle
   double pidOutput_;
   CalibrationState calibrationState_;
   volatile bool leftLimitHit_;
   volatile bool rightLimitHit_;
   volatile bool emergencyStop_;
-  volatile bool startupGracePeriodEnabled_;  // Suppress emergency stop during startup
-  volatile unsigned long lastLeftLimitTime_;   // Debounce timestamp
-  volatile unsigned long lastRightLimitTime_;  // Debounce timestamp
+  volatile bool
+      startupGracePeriodEnabled_; // Suppress emergency stop during startup
+  volatile unsigned long lastLeftLimitTime_;  // Debounce timestamp
+  volatile unsigned long lastRightLimitTime_; // Debounce timestamp
+  unsigned long lastUpdateTime_; // For rate limiting dt calculation
   PID pid_;
   Preferences preferences_;
   static const unsigned long LIMIT_DEBOUNCE_MS = 50; // 50ms debounce
 
   /**
-   * @brief Update current angle from encoder count
+   * @brief Update current angle from encoder count with EMA filter
+   * EMA filter reduces noise and jitter in angle readings
    */
   void updateCurrentAngle() {
-    currentAngle_ = (float)encoderCount_ / PULSES_PER_DEGREE;
+    // Raw angle from encoder
+    float rawAngle = (float)encoderCount_ / PULSES_PER_DEGREE;
+
+    // EMA (Exponential Moving Average) filter
+    // Alpha = 0.3 gives good smoothing while remaining responsive
+    const float EMA_ALPHA = 0.3f;
+    filteredAngle_ = EMA_ALPHA * rawAngle + (1.0f - EMA_ALPHA) * filteredAngle_;
+
+    currentAngle_ = filteredAngle_;
   }
 
   /**
@@ -378,12 +472,17 @@ private:
     if (startupGracePeriodEnabled_) {
       return;
     }
-    
+
     unsigned long currentTime = millis();
     // Only process if debounce time has passed
     if (currentTime - lastLeftLimitTime_ >= LIMIT_DEBOUNCE_MS) {
-      // Verify pin is actually LOW (switch pressed)
+      // Check if switch is triggered (active HIGH for NC switches, active LOW
+      // for NO switches)
+#if LIMIT_SWITCH_ACTIVE_HIGH
+      if (digitalRead(LIMIT_SWITCH_LEFT) == HIGH) {
+#else
       if (digitalRead(LIMIT_SWITCH_LEFT) == LOW) {
+#endif
         leftLimitHit_ = true;
         emergencyStop_ = true;
         motor_.stop();
@@ -400,12 +499,17 @@ private:
     if (startupGracePeriodEnabled_) {
       return;
     }
-    
+
     unsigned long currentTime = millis();
     // Only process if debounce time has passed
     if (currentTime - lastRightLimitTime_ >= LIMIT_DEBOUNCE_MS) {
-      // Verify pin is actually LOW (switch pressed)
+      // Check if switch is triggered (active HIGH for NC switches, active LOW
+      // for NO switches)
+#if LIMIT_SWITCH_ACTIVE_HIGH
+      if (digitalRead(LIMIT_SWITCH_RIGHT) == HIGH) {
+#else
       if (digitalRead(LIMIT_SWITCH_RIGHT) == LOW) {
+#endif
         rightLimitHit_ = true;
         emergencyStop_ = true;
         motor_.stop();

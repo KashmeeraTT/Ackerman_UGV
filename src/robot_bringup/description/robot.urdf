@@ -190,7 +190,7 @@
     <child link="front_left_steering_link"/>
     <origin xyz="0.3 0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 0 1"/>
-    <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
+    <limit lower="-0.1745" upper="0.1745" effort="100" velocity="1.0"/>
   </joint>
 
   <link name="front_left_wheel">
@@ -231,7 +231,7 @@
     <child link="front_right_steering_link"/>
     <origin xyz="0.3 -0.58 0.15" rpy="0 0 0"/> <!-- Wheelbase 0.6m, Track 1.16m -->
     <axis xyz="0 0 1"/>
-    <limit lower="-0.5" upper="0.5" effort="100" velocity="1.0"/>
+    <limit lower="-0.1745" upper="0.1745" effort="100" velocity="1.0"/>
   </joint>
 
   <link name="front_right_wheel">
@@ -286,5 +286,22 @@
 
   <!-- Note: Laser scan (/scan) is generated from camera depth via pointcloud_to_laserscan node -->
   <!-- No separate lidar hardware - camera_link is the reference frame for all perception -->
+
+  <!-- IMU Link (GY87 module on chassis) -->
+  <link name="imu_link">
+    <visual>
+      <geometry>
+        <box size="0.02 0.02 0.005"/>
+      </geometry>
+      <material name="cyan"/>
+    </visual>
+  </link>
+  
+  <joint name="base_to_imu" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <!-- IMU mounted flat on chassis, near center -->
+    <origin xyz="0 0 0.29" rpy="0 0 0"/>
+  </joint>
 
 </robot>

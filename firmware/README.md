@@ -34,8 +34,8 @@ ESP32 firmware for Ackermann UGV motor control with micro-ROS integration.
 ```
 Wheelbase:       0.6 m
 Track Width:     1.16 m
-Max Steering:    ±20°
-Min Turn Radius: ~1.65 m
+Max Steering:    ±10°
+Min Turn Radius: ~3.40 m
 ```
 
 ## Building
@@ -59,7 +59,7 @@ See `include/pin_config.h` for pin assignments.
 
 1. **Command Timeout**: Motors stop if no `/cmd_vel` for 500ms
 2. **E-Stop**: Auto-stop when limit switch triggered
-3. **Steering Clamp**: Hardware limits at ±20°
+3. **Steering Clamp**: Hardware limits at ±10°
 4. **Startup Centering**: Steering auto-centers on boot
 
 ## File Structure

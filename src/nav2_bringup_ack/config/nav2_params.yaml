@@ -18,7 +18,7 @@ planner_server:
       max_planning_time: 5.0
       motion_model_for_search: "REEDS_SHEPP"  # or REEDS_SHEPP if reverse is allowed
       angle_quantization_bins: 72
-      minimum_turning_radius: 1.65  # Calculated: wheelbase/tan(max_steer) = 0.6/tan(20°)
+      minimum_turning_radius: 3.40  # Calculated: wheelbase/tan(max_steer) = 0.6/tan(10°)
       reverse_penalty: 4.0
       change_penalty: 0.15
       non_straight_penalty: 1.2
