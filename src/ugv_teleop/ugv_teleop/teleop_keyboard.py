@@ -118,10 +118,10 @@ class TeleopKeyboard(Node):
         self.th = 0.0
         
         # Steering angle control (in degrees)
-        # -10 to +10 degrees based on UGV steering range
+        # -8 to +8 degrees based on UGV steering soft limit
         self.steering_angle = 0.0
-        self.max_steering_angle = 10.0
-        self.min_steering_angle = -10.0
+        self.max_steering_angle = 8.0   # degrees - soft limit (physical limit at 10°)
+        self.min_steering_angle = -8.0  # degrees - symmetric soft limit
         
         # Control state
         self.status = 0

@@ -86,8 +86,10 @@ void SteeringController::update() {
 }
 
 void SteeringController::setTargetAngle(float angleDeg) {
+  // Constrain to soft limits (±8°) - keep 2° overhead before physical limits
+  // (±10°)
   targetAngle_ =
-      constrain(angleDeg, MIN_STEERING_ANGLE_DEG, MAX_STEERING_ANGLE_DEG);
+      constrain(angleDeg, -SOFT_LIMIT_ANGLE_DEG, SOFT_LIMIT_ANGLE_DEG);
 }
 
 long SteeringController::getEncoderCount() const { return encoder_.getCount(); }

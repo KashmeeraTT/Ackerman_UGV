@@ -37,11 +37,11 @@ scan:
 
 navigation:
   # Planner
-  minimum_turning_radius: 3.40   # Minimum turn radius (meters) = wheelbase/tan(10°)
+  minimum_turning_radius: 4.27   # Minimum turn radius (meters) = wheelbase/tan(8°)
   max_planning_time: 5.0         # Planner timeout (seconds)
   
   # Controller
-  controller_frequency: 10.0     # Control loop rate (Hz)
+  controller_frequency: 20.0     # Control loop rate (Hz)
   desired_linear_vel: 0.4        # Target forward speed (m/s)
   
   # Goal tolerance
@@ -70,6 +70,6 @@ health:
 ackermann:
   wheelbase_m: 0.60              # Front to rear axle distance (meters)
   track_width_m: 1.16            # Distance between wheels on same axle (meters)
-  max_steer_deg: 10.0            # Maximum steering angle (degrees)
+  max_steer_deg: 8.0            # Maximum steering angle (degrees) - soft limit
   max_speed_mps: 0.50            # Maximum speed (m/s)
   max_accel_mps2: 0.60           # Maximum acceleration (m/s²)

@@ -1,0 +1,85 @@
+# =============================================================================
+# EKF Sensor Fusion Configuration (OPTIONAL ENHANCEMENT)
+# =============================================================================
+# Fuses: VSLAM odometry + Camera IMU + Body IMU
+# Outputs: /odom_filtered (enhanced odometry when IMUs available)
+# NOTE: EKF never publishes TF - slam_odom_bridge is always the TF source
+# =============================================================================
+
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: false
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+    # slam_odom_bridge is ALWAYS the TF source (Visual SLAM primary)
+    # EKF provides enhanced /odom_filtered when IMUs available
+    publish_tf: false
+    publish_acceleration: false
+    
+    # Frame configuration
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+    
+    # ==========================================================================
+    # SENSOR 1: Visual SLAM Odometry (from slam_odom_bridge)
+    # ==========================================================================
+    odom0: /odom
+    odom0_config: [true, true, false,    # x, y, z
+                   false, false, true,    # roll, pitch, yaw
+                   true, true, false,     # vx, vy, vz
+                   false, false, true,    # vroll, vpitch, vyaw
+                   false, false, false]   # ax, ay, az
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+    
+    # ==========================================================================
+    # SENSOR 2: Camera IMU (Orbbec Gemini 2L built-in) - PRIMARY
+    # ==========================================================================
+    # Camera is now level (no tilt), so we can use absolute orientation
+    imu0: /camera/gyro_accel/sample  # OrbbecSDK synced accel+gyro topic
+    imu0_config: [false, false, false,   # x, y, z (no position from IMU)
+                  true, true, true,       # roll, pitch, yaw (full orientation)
+                  false, false, false,    # vx, vy, vz
+                  true, true, true,       # vroll, vpitch, vyaw (angular velocity)
+                  true, true, false]      # ax, ay, az (linear acceleration, no z)
+    imu0_differential: false  # Use absolute orientation
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+    imu0_queue_size: 10
+    
+    # ==========================================================================
+    # SENSOR 3: Body IMU (ESP32 MPU6050) - SECONDARY
+    # ==========================================================================
+    # Lower trust - for redundancy and vibration sensing
+    imu1: /ugv/imu
+    imu1_config: [false, false, false,   # x, y, z
+                  false, false, true,     # roll, pitch, yaw (yaw only)
+                  false, false, false,    # vx, vy, vz
+                  false, false, true,     # vroll, vpitch, vyaw (yaw rate only)
+                  true, true, false]      # ax, ay, az (acceleration x, y)
+    imu1_differential: false
+    imu1_relative: false
+    imu1_remove_gravitational_acceleration: true
+    imu1_queue_size: 10
+    
+    # ==========================================================================
+    # Process Noise Covariance (how much we trust the motion model)
+    # ==========================================================================
+    process_noise_covariance: [0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.05, 0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.06, 0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.03, 0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.06, 0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.025, 0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.025, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.04, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.01, 0.0,  0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.02, 0.0,  0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.015]

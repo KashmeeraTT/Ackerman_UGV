@@ -25,7 +25,7 @@ class SmartJointPublisher(Node):
         # Parameters
         self.declare_parameter('wheelbase', 0.60) # Dist between front/rear axles
         self.declare_parameter('track_width', 1.16) # Dist between left/right wheels
-        self.declare_parameter('max_steer_angle', 0.1745) # Radians (~10 degrees)
+        self.declare_parameter('max_steer_angle', 0.1396) # Radians (~8 degrees) - soft limit
         self.declare_parameter('wheel_radius', 0.15) # meters
         
         self.wheelbase = self.get_parameter('wheelbase').value

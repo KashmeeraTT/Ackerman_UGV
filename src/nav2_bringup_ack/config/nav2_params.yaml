@@ -18,7 +18,7 @@ planner_server:
       max_planning_time: 5.0
       motion_model_for_search: "REEDS_SHEPP"  # or REEDS_SHEPP if reverse is allowed
       angle_quantization_bins: 72
-      minimum_turning_radius: 3.40  # Calculated: wheelbase/tan(max_steer) = 0.6/tan(10°)
+      minimum_turning_radius: 4.27  # Calculated: wheelbase/tan(max_steer) = 0.6/tan(8°)
       reverse_penalty: 4.0
       change_penalty: 0.15
       non_straight_penalty: 1.2
@@ -38,7 +38,7 @@ planner_server:
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 10.0  # Reduced from 20Hz for lower CPU usage
+    controller_frequency: 20.0  # Must be >= 1/model_dt (20Hz = 50ms = model_dt)
     min_x_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
     progress_checker_plugin: "progress_checker"
@@ -57,20 +57,67 @@ controller_server:
       stateful: true
 
     FollowPath:
-      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      use_rotate_to_heading: false
-      desired_linear_vel: 0.4
-      max_linear_accel: 1.0
-      max_angular_accel: 2.0
-      min_lookahead_dist: 0.6
-      max_lookahead_dist: 1.5
-      lookahead_time: 1.5
-      rotate_to_heading_angular_vel: 0.0 # Disable rotate in place
-      transform_tolerance: 0.5  # Reduced from 2.0 for better TF sync
-      use_collision_detection: true
-      allow_reversing: true
-      max_robot_pose_search_dist: 10.0
-      use_interpolation: true
+      # MPPI Controller - Predictive, Ackermann-native
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 56
+      model_dt: 0.05  # 50ms - controller period must be <= this
+      batch_size: 2000
+      vx_std: 0.2
+      wz_std: 0.4
+      vx_max: 0.5
+      vx_min: -0.35
+      wz_max: 1.0
+      ax_max: 0.6
+      ax_min: -0.75
+      az_max: 1.8
+      iteration_count: 1
+      prune_distance: 1.7
+      transform_tolerance: 0.3
+      motion_model: "Ackermann"
+      visualize: false
+      AckermannConstraints:
+        min_turning_radius: 4.27  # Updated for 8° steering soft limit
+      critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "GoalAngleCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic"]
+      ConstraintCritic:
+        enabled: true
+        cost_weight: 4.0
+        cost_power: 1
+      CostCritic:
+        enabled: true
+        cost_weight: 3.0
+        cost_power: 1
+        critical_cost: 300.0
+        consider_footprint: true
+        collision_cost: 1000000.0
+        near_goal_distance: 1.0
+      GoalCritic:
+        enabled: true
+        cost_weight: 5.0
+        cost_power: 1
+        threshold_to_consider: 1.4
+      GoalAngleCritic:
+        enabled: true
+        cost_weight: 3.0
+        cost_power: 1
+        threshold_to_consider: 0.5
+      PathFollowCritic:
+        enabled: true
+        cost_weight: 5.0
+        cost_power: 1
+        offset_from_furthest: 5
+        threshold_to_consider: 1.4
+      PathAngleCritic:
+        enabled: true
+        cost_weight: 2.0
+        cost_power: 1
+        offset_from_furthest: 4
+        threshold_to_consider: 0.5
+        max_angle_to_furthest: 1.0
+      PreferForwardCritic:
+        enabled: true
+        cost_weight: 5.0
+        cost_power: 1
+        threshold_to_consider: 0.5
 
 bt_navigator:
   ros__parameters:
@@ -178,9 +225,54 @@ behavior_server:
     wait:
       plugin: "nav2_behaviors/Wait"
 
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: false
+    smoothing_frequency: 20.0
+    scale_velocities: false
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.5, 0.0, 1.0]
+    min_velocity: [-0.35, 0.0, -1.0]
+    max_accel: [0.6, 0.0, 1.8]
+    max_decel: [-0.75, 0.0, -1.8]
+    odom_topic: "odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: false
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_smoothed"
+    cmd_vel_out_topic: "cmd_vel"
+    transform_tolerance: 0.5
+    source_timeout: 2.0
+    stop_pub_timeout: 2.0
+    polygons: ["PolygonStop", "PolygonSlow"]
+    PolygonStop:
+      type: "polygon"
+      points: [0.5, 0.6, 0.5, -0.6, -0.1, -0.6, -0.1, 0.6]
+      action_type: "stop"
+      max_points: 3
+      visualize: true
+      polygon_pub_topic: "polygon_stop"
+    PolygonSlow:
+      type: "polygon"
+      points: [1.0, 0.7, 1.0, -0.7, -0.2, -0.7, -0.2, 0.7]
+      action_type: "slowdown"
+      max_points: 3
+      slowdown_ratio: 0.3
+      visualize: true
+      polygon_pub_topic: "polygon_slow"
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/scan"
 
 lifecycle_manager_navigation:
   ros__parameters:
     use_sim_time: false
     autostart: true
-    node_names: ["controller_server", "planner_server", "behavior_server", "bt_navigator"]
+    node_names: ["controller_server", "planner_server", "behavior_server", "bt_navigator", "velocity_smoother", "collision_monitor"]
+

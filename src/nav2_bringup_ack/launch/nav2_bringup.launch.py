@@ -26,6 +26,9 @@ def generate_launch_description():
         name='controller_server',
         output='screen',
         parameters=[params_file],
+        remappings=[
+            ('cmd_vel', 'cmd_vel_nav')  # Output to velocity smoother
+        ]
     )
 
     behavior_server = Node(
@@ -42,6 +45,32 @@ def generate_launch_description():
         name='bt_navigator',
         output='screen',
         parameters=[params_file],
+    )
+
+    # Velocity Smoother - smooths cmd_vel output
+    velocity_smoother = Node(
+        package='nav2_velocity_smoother',
+        executable='velocity_smoother',
+        name='velocity_smoother',
+        output='screen',
+        parameters=[params_file],
+        remappings=[
+            ('cmd_vel', 'cmd_vel_nav'),           # Input from controller
+            ('cmd_vel_smoothed', 'cmd_vel_smoothed')  # Output to collision monitor
+        ]
+    )
+
+    # Collision Monitor - independent safety layer
+    collision_monitor = Node(
+        package='nav2_collision_monitor',
+        executable='collision_monitor',
+        name='collision_monitor',
+        output='screen',
+        parameters=[params_file],
+        remappings=[
+            ('cmd_vel_in', 'cmd_vel_smoothed'),   # Input from velocity smoother
+            ('cmd_vel_out', 'cmd_vel')            # Final output to robot
+        ]
     )
 
     # Lifecycle manager - DELAYED to allow TF tree to be established
@@ -65,6 +94,8 @@ def generate_launch_description():
         controller_server,
         behavior_server,
         bt_navigator,
+        velocity_smoother,
+        collision_monitor,
         delayed_lifecycle_manager,
     ])
 

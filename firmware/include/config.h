@@ -110,8 +110,8 @@
 // ============================================================================
 
 #define LOOP_PERIOD_MS 10           // Main loop period (100 Hz)
-#define STATUS_PERIOD_MS 100        // Status publishing (10 Hz)
-#define HEARTBEAT_PERIOD_MS 100     // Heartbeat publishing (10 Hz)
+#define STATUS_PERIOD_MS 200        // Status publishing (5 Hz) - reduced from 10Hz
+#define HEARTBEAT_PERIOD_MS 200     // Heartbeat publishing (5 Hz) - reduced from 10Hz
 #define STEERING_ANGLE_PERIOD_MS 50 // Steering angle publishing (20 Hz)
 #define IMU_PERIOD_MS 20            // IMU publishing (50 Hz)
 #define DISPLAY_PERIOD_MS 200       // Display update (5 Hz)

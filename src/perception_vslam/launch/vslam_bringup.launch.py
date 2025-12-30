@@ -17,13 +17,21 @@ def generate_launch_description():
     bridge_params = os.path.join(vslam_share, 'config', 'slam_odom_bridge.yaml')
 
     return LaunchDescription([
-        # Camera
+        # Camera with IMU enabled
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(gem2l_launch),
             launch_arguments={
                 'enable_align_depth': 'true',
                 'depth_fps': '10',
-                'color_fps': '10'
+                'color_fps': '10',
+                # Enable built-in 6-axis IMU for sensor fusion
+                'enable_sync_output_accel_gyro': 'true',
+                'enable_accel': 'true',
+                'enable_gyro': 'true',
+                'accel_rate': '200hz',
+                'gyro_rate': '200hz',
+                # Disable camera TF publishing - we use URDF for camera_link position
+                'publish_tf': 'false',
             }.items()
         ),
 

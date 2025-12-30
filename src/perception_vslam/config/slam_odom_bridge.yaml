@@ -4,3 +4,6 @@ slam_odom_bridge:
     odom_frame: "odom"
     base_link_frame: "base_link"
     publish_map_to_odom: false
+    # Visual SLAM is PRIMARY - always publishes odom->base_link TF
+    # IMUs are optional enhancements, never required
+    publish_tf: true

@@ -128,14 +128,68 @@ def generate_launch_description():
         }]
     )
 
+    # EKF Sensor Fusion (OPTIONAL ENHANCEMENT)
+    # Always runs, provides /odom_filtered for enhanced localization when IMUs available
+    # Visual SLAM (slam_odom_bridge) is ALWAYS the primary TF source
+    # EKF gracefully handles missing IMU data
+    ekf_config = os.path.join(pkg_robot_bringup, 'config', 'ekf.yaml')
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config],
+        remappings=[
+            ('odometry/filtered', '/odom_filtered')
+        ]
+    )
+
+    # Delay EKF startup by 8 seconds to let VSLAM initialize
+    from launch.actions import TimerAction
+    delayed_ekf = TimerAction(
+        period=8.0,  # Wait 8 seconds for VSLAM to start publishing /odom
+        actions=[ekf_node]
+    )
+
+    # Adaptive Sensor Fusion (health monitoring)
+    # Monitors IMU reliability against expected motion state
+    adaptive_fusion_node = Node(
+        package='sensor_fusion',
+        executable='adaptive_fusion.py',
+        name='adaptive_fusion',
+        output='screen',
+        parameters=[{
+            'stationary_threshold': 0.02,
+            'imu_variance_threshold': 0.5,
+            'sensor_timeout': 0.5
+        }]
+    )
+
+    # Delay adaptive fusion startup by 10 seconds to let camera/VSLAM initialize
+    delayed_adaptive_fusion = TimerAction(
+        period=10.0,  # Wait 10 seconds for camera topics to be available
+        actions=[adaptive_fusion_node]
+    )
+
+    # Sensor Fusion Status GUI
+    status_gui_node = Node(
+        package='sensor_fusion',
+        executable='status_gui.py',
+        name='sensor_fusion_gui',
+        output='screen'
+    )
+
     return LaunchDescription([
-        set_fastdds_env,
+        set_fastdds_env,  # Disable FastDDS shared memory (prevents some issues)
         declare_use_rviz,
         declare_use_micro_ros,
         declare_serial_port,
         rsp_node,
         jsp_node,
         vslam_launch,
+        delayed_ekf,              # EKF sensor fusion (8s delay)
+        delayed_adaptive_fusion,  # Sensor health monitoring (10s delay)
+        # status_gui_node,        # GUI - run manually: ros2 run sensor_fusion status_gui.py
         nav2_launch,
         ackermann_bridge_launch,
         micro_ros_agent,

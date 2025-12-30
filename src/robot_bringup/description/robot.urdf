@@ -280,8 +280,83 @@
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <!-- Camera at front, tilted 10° down for better ground obstacle detection -->
-    <origin xyz="0.45 0 0.325" rpy="0 0.175 0"/>
+    <!-- Camera at front, level orientation -->
+    <origin xyz="0.45 0 0.325" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Camera Optical Frames (ROS optical convention: Z forward, X right, Y down) -->
+  <!-- The -90° roll and -90° yaw converts from camera_link (X forward) to optical (Z forward) -->
+  
+  <link name="camera_depth_frame"/>
+  <joint name="camera_to_depth" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_depth_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_depth_optical_frame"/>
+  <joint name="camera_depth_to_optical" type="fixed">
+    <parent link="camera_depth_frame"/>
+    <child link="camera_depth_optical_frame"/>
+    <!-- Standard optical frame rotation: -90° yaw, -90° pitch equivalent to: roll=-π/2, yaw=-π/2 -->
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+  </joint>
+
+  <link name="camera_color_frame"/>
+  <joint name="camera_to_color" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_color_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_color_optical_frame"/>
+  <joint name="camera_color_to_optical" type="fixed">
+    <parent link="camera_color_frame"/>
+    <child link="camera_color_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+  </joint>
+
+  <link name="camera_ir_frame"/>
+  <joint name="camera_to_ir" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_ir_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_ir_optical_frame"/>
+  <joint name="camera_ir_to_optical" type="fixed">
+    <parent link="camera_ir_frame"/>
+    <child link="camera_ir_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+  </joint>
+
+  <!-- Camera IMU frames (gyro and accel) -->
+  <link name="camera_gyro_frame"/>
+  <joint name="camera_to_gyro" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_gyro_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_gyro_optical_frame"/>
+  <joint name="camera_gyro_to_optical" type="fixed">
+    <parent link="camera_gyro_frame"/>
+    <child link="camera_gyro_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+  </joint>
+
+  <link name="camera_accel_frame"/>
+  <joint name="camera_to_accel" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_accel_frame"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_accel_optical_frame"/>
+  <joint name="camera_accel_to_optical" type="fixed">
+    <parent link="camera_accel_frame"/>
+    <child link="camera_accel_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
   </joint>
 
   <!-- Note: Laser scan (/scan) is generated from camera depth via pointcloud_to_laserscan node -->
