@@ -45,10 +45,12 @@
 #define MOTOR_DEADBAND 20 // PWM deadband to prevent motor hum
 
 // Encoder Configuration
-#define ENCODER_PPR 600 // Pulses per revolution
-#define PULSES_PER_10_DEGREES                                                  \
-  500 // 10 degrees = 500 pulses (as per requirement)
-#define PULSES_PER_DEGREE (PULSES_PER_10_DEGREES / 10.0) // 50 pulses per degree
+// NOTE: PULSES_PER_DEGREE is determined DYNAMICALLY during calibration
+// These are fallback defaults only - calibration routine calculates actual
+// values
+#define ENCODER_PPR 600 // Pulses per revolution (encoder spec)
+// Defaults below are overridden by calibration - see config.h for calibrated
+// values
 
 // Steering Safety Limits
 #define MAX_STEERING_ANGLE_DEG 10.0  // Maximum steering angle (degrees)

@@ -50,7 +50,7 @@ graph TD
     Nav2 -->|/cmd_vel| Robot[Robot Base]
 ```
 
-## 2. Package Overview
+## 4. Package Overview
 
 | Package Name | Purpose | Key Launch/Nodes |
 | :--- | :--- | :--- |
@@ -59,11 +59,12 @@ graph TD
 | **orbslam3_ros2** | Core Visual SLAM wrapper for ORB-SLAM3. | `orbslam3_ros2` node |
 | **slam_odom_bridge** | Converts SLAM Poses to standard ROS 2 Odometry. | `slam_odom_bridge` node |
 | **nav2_bringup_ack** | Navigation 2 stack configuration and launch. | `nav2_bringup.launch.py` |
+| **sensor_fusion** | EKF sensor fusion and adaptive health monitoring. | `ekf_filter_node`, `adaptive_fusion.py` |
 | **OrbbecSDK_ROS2** | Drivers for Orbbec cameras. | `orbbec_camera` |
-| **ackermann_bridge_demo**| Demonstrations/Bridge for vehicle control. | - |
-| **ugv_teleop** | Teleoperation tools. | - |
+| **ackermann_bridge_demo**| Twist to Ackermann command conversion. | `twist_to_ackermann` |
+| **ugv_teleop** | Robot model (URDF) and teleoperation. | - |
 
-## 3. Dependencies
+## 5. Dependencies
 
 - **ROS 2 Humble Hawksbill**
 - **Navigation 2 (`nav2_bringup`, `navigation2`)**
@@ -135,8 +136,8 @@ Key parameters to tune for your environment:
 
 | Parameter | File | Default | Notes |
 |-----------|------|---------|-------|
-| `minimum_turning_radius` | `nav2_params.yaml` | 1.5m | Match actual robot kinematics |
-| `controller_frequency` | `nav2_params.yaml` | 10Hz | Increase for faster response |
+| `minimum_turning_radius` | `nav2_params.yaml` | 4.27m | Based on 8° soft steering limit |
+| `controller_frequency` | `nav2_params.yaml` | 20Hz | MPPI controller rate |
 | `odom_timeout` | `system.launch.py` | 2.0s | Safe-stop trigger delay |
 | `transform_tolerance` | `nav2_params.yaml` | 0.5s | TF lookup tolerance |
 

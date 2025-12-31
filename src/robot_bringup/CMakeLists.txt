@@ -13,7 +13,6 @@ install(DIRECTORY launch description rviz
 )
 
 install(PROGRAMS 
-  scripts/dummy_joint_publisher.py 
   scripts/smart_joint_publisher.py 
   scripts/scan_relay.py
   scripts/health_monitor.py

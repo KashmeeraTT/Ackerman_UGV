@@ -395,7 +395,8 @@ bool SteeringController::getRightLimitState() const {
 }
 
 void SteeringController::updateCurrentAngle() {
-  float rawAngle = encoder_.getAngle(PULSES_PER_DEGREE);
+  // Use dynamically calibrated pulses per degree (set during calibration)
+  float rawAngle = encoder_.getAngle(pulsesPerDegree_);
 
   // EMA filter (alpha = 0.3)
   const float ALPHA = 0.3f;
@@ -405,7 +406,8 @@ void SteeringController::updateCurrentAngle() {
 
 bool SteeringController::isInSafeZone() const {
   long count = encoder_.getCount();
-  return (count >= -SOFT_LIMIT_PULSES && count <= SOFT_LIMIT_PULSES);
+  // Use dynamically calculated soft limit from calibration
+  return (count >= -dynamicSoftLimit_ && count <= dynamicSoftLimit_);
 }
 
 void SteeringController::saveCalibration() {

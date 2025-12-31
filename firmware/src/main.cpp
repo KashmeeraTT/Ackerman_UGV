@@ -268,7 +268,7 @@ void loop() {
     }
   }
 
-  // Heartbeat publishing (10 Hz)
+  // Heartbeat publishing (5 Hz)
   if (now - lastHeartbeatTime >= HEARTBEAT_PERIOD_MS) {
     lastHeartbeatTime = now;
     ros.publishHeartbeat();
@@ -292,7 +292,7 @@ void loop() {
                    imu.getAccelZ());
   }
 
-  // Status publishing (10 Hz)
+  // Status publishing (5 Hz)
   if (now - lastStatusTime >= STATUS_PERIOD_MS) {
     lastStatusTime = now;
 

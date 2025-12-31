@@ -150,8 +150,9 @@ flowchart TB
 |-----------|-------|------|
 | Wheelbase | 0.60 | m |
 | Track Width | 1.16 | m |
-| Max Steering Angle | ±10 | degrees |
-| Min Turn Radius | 3.40 | m |
+| Wheel Radius | 0.15 | m |
+| Max Steering Angle | ±10 (hardware), ±8 (soft) | degrees |
+| Min Turn Radius | 4.27 | m |
 | Max Speed | 0.5 | m/s |
 | Max Acceleration | 0.6 | m/s² |
 
@@ -164,7 +165,9 @@ flowchart TB
 | MCU | ESP32 DevKit V1 | USB Serial | Motor control |
 | Steering Driver | BTS7960 | PWM | Steering motor |
 | Drive Driver | BTS7960 | PWM | Drive motor |
-| Steering Encoder | Rotary Encoder | GPIO | Position feedback |
+| Steering Encoder | Rotary Encoder | GPIO | Position feedback (dynamic calibration) |
+| Wheel Encoders | Quadrature x2 | GPIO | Odometry |
+| IMU | GY-87 (MPU6050) | I2C | Orientation/acceleration |
 | Limit Switches | NO Switches x2 | GPIO | End stops |
 | Display | SSD1306 OLED | I2C | Status display |
 
@@ -189,6 +192,10 @@ graph LR
         SB[slam_odom_bridge]
     end
     
+    subgraph Fusion[Sensor Fusion]
+        SF[sensor_fusion]
+    end
+    
     subgraph Nav[Navigation]
         NB[nav2_bringup_ack]
     end
@@ -206,6 +213,7 @@ graph LR
     RB --> PV
     RB --> NB
     RB --> AB
+    RB --> SF
     PV --> OS
     PV --> OC
     AB --> AM
@@ -223,6 +231,7 @@ graph LR
 | `OrbbecSDK_ROS2` | Driver | Orbbec camera driver |
 | `pointcloud_to_laserscan` | Node | Converts PointCloud2 to LaserScan |
 | `slam_odom_bridge` | Node | Converts SLAM pose to odometry + TF |
+| `sensor_fusion` | Node | EKF sensor fusion and adaptive health monitoring |
 | `nav2_bringup_ack` | Launch/Config | Nav2 with Ackermann parameters |
 | `ackermann_bridge_demo` | Node | Twist to Ackermann conversion |
 | `ackermann_msgs` | Messages | Ackermann message definitions |
@@ -251,11 +260,18 @@ graph TB
         P2L[pointcloud_to_laserscan_node]
     end
     
+    subgraph Fusion[Sensor Fusion]
+        EKF[ekf_filter_node]
+        AF[adaptive_fusion]
+    end
+    
     subgraph Nav2[Navigation Nodes]
-        CS[controller_server]
-        PS[planner_server]
+        CS[controller_server MPPI]
+        PS[planner_server Hybrid A*]
         BS[behavior_server]
         BTN[bt_navigator]
+        VS[velocity_smoother]
+        CM[collision_monitor]
         LM[lifecycle_manager]
     end
     
@@ -263,7 +279,6 @@ graph TB
         T2A[twist_to_ackermann]
         HM[health_monitor]
         SJP[smart_joint_publisher]
-        SR[scan_relay]
     end
 ```
 
@@ -275,7 +290,9 @@ graph TB
 | `rgbd_node` | `/camera/*` | `/orbslam3/camera_pose` |
 | `slam_odom_bridge` | `/orbslam3/camera_pose` | `/odom`, TF: odom→base_link |
 | `pointcloud_to_laserscan` | `/camera/depth/points` | `/scan` |
-| `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel` |
+| `ekf_filter_node` | `/odom`, `/ugv/imu` | `/odom_filtered` |
+| `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel_smoothed` |
+| `velocity_smoother` | `/cmd_vel_smoothed` | `/cmd_vel` |
 | `twist_to_ackermann` | `/cmd_vel`, `/ugv/steering_angle` | `/ackermann_cmd` |
 | `micro_ros_agent` | - | - (bridge to ESP32) |
 | `health_monitor` | `/orbslam3/camera_pose` | `/robot/health` |
@@ -324,13 +341,15 @@ graph LR
 | `/camera/depth/image_raw` | Image | 10 Hz | camera_node | rgbd_node | Depth image |
 | `/camera/depth/points` | PointCloud2 | 10 Hz | camera_node | p2l_node | Point cloud |
 | `/orbslam3/camera_pose` | PoseStamped | 30 Hz | rgbd_node | slam_odom_bridge | SLAM pose |
-| `/odom` | Odometry | 20 Hz | slam_odom_bridge | Nav2 | Robot odometry |
+| `/odom` | Odometry | 20 Hz | slam_odom_bridge | Nav2, EKF | Robot odometry |
+| `/odom_filtered` | Odometry | 20 Hz | ekf_filter_node | - | Fused odometry |
 | `/scan` | LaserScan | 10 Hz | p2l_node | Nav2 | 2D laser scan |
-| `/cmd_vel` | Twist | 10 Hz | controller_server | twist_to_ackermann | Velocity command |
+| `/cmd_vel` | Twist | 20 Hz | velocity_smoother | twist_to_ackermann | Velocity command |
 | `/ackermann_cmd` | AckermannDriveStamped | 20 Hz | twist_to_ackermann | micro_ros_agent | Ackermann command |
-| `/ugv/status` | String | 10 Hz | ESP32 | - | Status string |
-| `/ugv/heartbeat` | Bool | 10 Hz | ESP32 | - | Heartbeat |
+| `/ugv/status` | String | 5 Hz | ESP32 | - | Status string |
+| `/ugv/heartbeat` | Bool | 5 Hz | ESP32 | - | Heartbeat |
 | `/ugv/steering_angle` | Float32 | 20 Hz | ESP32 | twist_to_ackermann | Actual steering |
+| `/ugv/imu` | Imu | 50 Hz | ESP32 | ekf_filter_node | IMU data |
 | `/robot/health` | String | 1 Hz | health_monitor | - | System health |
 | `/goal_pose` | PoseStamped | - | User/RViz | bt_navigator | Navigation goal |
 
@@ -345,9 +364,12 @@ graph TB
     MAP[map]
     ODOM[odom]
     BASE[base_link]
+    IMU[imu_link]
     CAMERA[camera_link]
     DEPTH[camera_depth_frame]
     COLOR[camera_color_frame]
+    GYRO[camera_gyro_frame]
+    ACCEL[camera_accel_frame]
     FLWHEEL[front_left_wheel]
     FRWHEEL[front_right_wheel]
     RLWHEEL[rear_left_wheel]
@@ -355,9 +377,12 @@ graph TB
     
     MAP -->|slam_toolbox| ODOM
     ODOM -->|slam_odom_bridge| BASE
+    BASE -->|static| IMU
     BASE -->|static| CAMERA
     CAMERA -->|camera_driver| DEPTH
     CAMERA -->|camera_driver| COLOR
+    CAMERA -->|camera_driver| GYRO
+    CAMERA -->|camera_driver| ACCEL
     BASE -->|joint_publisher| FLWHEEL
     BASE -->|joint_publisher| FRWHEEL
     BASE -->|joint_publisher| RLWHEEL
@@ -370,8 +395,10 @@ graph TB
 |-----------|-----------|------|------|
 | map → odom | slam_toolbox | 20 Hz | Dynamic |
 | odom → base_link | slam_odom_bridge | 20 Hz | Dynamic |
-| base_link → camera_link | static_transform_publisher | - | Static |
+| base_link → camera_link | robot_state_publisher | - | Static |
+| base_link → imu_link | robot_state_publisher | - | Static |
 | camera_link → depth_frame | camera_node | - | Static |
+| camera_link → gyro_frame | camera_node | - | Static |
 | base_link → wheels | smart_joint_publisher | 10 Hz | Dynamic |
 
 ---
@@ -405,6 +432,7 @@ sequenceDiagram
     participant BT as bt_navigator
     participant Plan as planner_server
     participant Ctrl as controller_server
+    participant VS as velocity_smoother
     participant Ack as twist_to_ackermann
     participant Agent as micro_ros_agent
     participant ESP as ESP32
@@ -414,9 +442,10 @@ sequenceDiagram
     Plan->>Plan: Hybrid A* Search
     Plan->>BT: Path
     BT->>Ctrl: FollowPath
-    loop Control Loop 10Hz
-        Ctrl->>Ctrl: Pure Pursuit
-        Ctrl->>Ack: cmd_vel
+    loop Control Loop 20Hz
+        Ctrl->>Ctrl: MPPI Optimization
+        Ctrl->>VS: cmd_vel_smoothed
+        VS->>Ack: cmd_vel
         Ack->>Ack: Convert to Ackermann
         Ack->>Agent: ackermann_cmd
         Agent->>ESP: USB Serial
@@ -475,10 +504,11 @@ flowchart TB
     end
     
     subgraph Parallel[Parallel Tasks]
-        HB[Heartbeat 10Hz]
+        HB[Heartbeat 5Hz]
         SA[Steering 20Hz]
-        ST[Status 10Hz]
+        ST[Status 5Hz]
         DSP[Display 5Hz]
+        IMU_PUB[IMU 50Hz]
     end
     
     START --> WDT
@@ -512,7 +542,7 @@ flowchart LR
     end
     
     subgraph Safety[Safety]
-        CLAMP[Clamp to 10 deg]
+        CLAMP[Clamp to 8 deg soft]
         LIMIT{Limit Switch?}
         STOP[STOP Motor]
     end
@@ -573,7 +603,7 @@ graph LR
     end
     
     subgraph Limits[Limits]
-        CLAMP[Clamp 10 deg]
+        CLAMP[Clamp 8 deg soft]
         VMAX[Max 0.5 mps]
     end
     
@@ -599,7 +629,7 @@ graph LR
 |-----------|---------|-------------|
 | Curvature | κ = ω / v | Instantaneous curvature |
 | Steering Angle | δ = atan(L × κ) | L = wheelbase (0.6m) |
-| Turn Radius | R = L / tan(δ) | Minimum ~3.40m |
+| Turn Radius | R = L / tan(δ) | Minimum ~4.27m at 8° soft limit |
 | Speed Factor | f = max(0.3, 1 - error/15) | Steering feedback |
 
 ### PID Tuning (Steering)
@@ -725,29 +755,31 @@ cd ~/robot_ws/firmware && pio device monitor
 
 | File | Purpose | Key Parameters |
 |------|---------|----------------|
-| `nav2_params.yaml` | Navigation tuning | speeds, tolerances, costmap |
+| `nav2_params.yaml` | Navigation tuning | MPPI, speeds, tolerances, costmap |
 | `tuning.yaml` | System parameters | timeouts, rates |
-| `ackermann.rviz` | RViz config | visualization |
-| `platformio.ini` | Firmware config | board, libs |
-| `pin_config.h` | ESP32 pins | GPIO assignments |
+| `config.h` | Firmware config | timing, PID, pins |
+| `robot.rviz` | RViz config | visualization |
+| `platformio.ini` | Firmware build | board, libs |
 
 ### Nav2 Parameters Summary
 
 ```yaml
 # Planner (Hybrid A*)
 planner_server:
-  minimum_turning_radius: 3.40  # meters
+  minimum_turning_radius: 4.27  # meters (8° soft limit)
   
-# Controller (Pure Pursuit)
+# Controller (MPPI)
 controller_server:
-  desired_linear_vel: 0.4
-  min_lookahead_dist: 0.6
-  max_lookahead_dist: 1.5
+  controller_frequency: 20.0
+  motion_model: "Ackermann"
+  vx_max: 0.5
+  AckermannConstraints:
+    min_turning_radius: 4.27
   
 # Costmaps
 local_inflation_radius: 0.80
 global_inflation_radius: 0.50
-robot_footprint: [[-0.5, -0.3], [0.5, -0.3], [0.5, 0.3], [-0.5, 0.3]]
+robot_footprint: [[-0.4, -0.58], [0.4, -0.58], [0.4, 0.58], [-0.4, 0.58]]
 ```
 
 ### ESP32 Pin Assignment
@@ -758,8 +790,12 @@ robot_footprint: [[-0.5, -0.3], [0.5, -0.3], [0.5, 0.3], [-0.5, 0.3]]
 | Steering RPWM | GPIO 26 |
 | Driving LPWM | GPIO 27 |
 | Driving RPWM | GPIO 14 |
-| Encoder A | GPIO 34 |
-| Encoder B | GPIO 35 |
+| Steering Encoder A | GPIO 34 |
+| Steering Encoder B | GPIO 35 |
+| Left Wheel Encoder A | GPIO 36 (VP) |
+| Left Wheel Encoder B | GPIO 39 (VN) |
+| Right Wheel Encoder A | GPIO 18 |
+| Right Wheel Encoder B | GPIO 19 |
 | Left Limit | GPIO 32 |
 | Right Limit | GPIO 33 |
 | I2C SDA | GPIO 21 |
@@ -805,5 +841,5 @@ robot_footprint: [[-0.5, -0.3], [0.5, -0.3], [0.5, 0.3], [-0.5, 0.3]]
 
 ---
 
-*Document Version: 1.0*  
+*Document Version: 1.1*  
 *Last Updated: December 2024*
