@@ -7,6 +7,9 @@ Uses cmd_vel and steering feedback to determine expected motion state,
 then validates IMU readings against this expectation.
 
 Visual SLAM remains the primary source - IMUs are optional enhancements.
+
+IMPORTANT: Uses lazy subscriptions to avoid conflicts with camera initialization.
+Camera topics are only subscribed after a 15-second delay.
 """
 
 import math
@@ -18,6 +21,7 @@ from typing import Optional
 import rclpy
 from rclpy.node import Node
 from rclpy.time import Time, Duration
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -57,6 +61,9 @@ class AdaptiveFusion(Node):
     Uses expected motion from:
     - /cmd_vel (velocity commands)
     - /ugv/steering_angle (steering feedback)
+    
+    IMPORTANT: Uses lazy subscriptions - camera topics are only subscribed
+    after startup delay to avoid conflicts with camera initialization.
     """
 
     def __init__(self):
@@ -68,12 +75,14 @@ class AdaptiveFusion(Node):
         self.declare_parameter('imu_variance_threshold', 0.5) # m/s² variance when stationary
         self.declare_parameter('sensor_timeout', 0.5)         # seconds before sensor unhealthy
         self.declare_parameter('health_window', 1.0)          # seconds for health averaging
+        self.declare_parameter('startup_delay', 15.0)         # seconds before subscribing to camera topics
         
         self.stationary_threshold = self.get_parameter('stationary_threshold').value
         self.stationary_timeout = self.get_parameter('stationary_timeout').value
         self.imu_variance_threshold = self.get_parameter('imu_variance_threshold').value
         self.sensor_timeout = self.get_parameter('sensor_timeout').value
         self.health_window = self.get_parameter('health_window').value
+        self.startup_delay = self.get_parameter('startup_delay').value
         
         # Motion state tracking
         self.motion_state = MotionState.UNKNOWN
@@ -101,7 +110,21 @@ class AdaptiveFusion(Node):
         self.last_vslam_pose = None
         self.last_vslam_time: Optional[Time] = None
         
-        # Publishers
+        # QoS profiles
+        # Default reliable QoS
+        self.reliable_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+        # Best effort QoS for camera topics (matches camera driver)
+        self.best_effort_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+        
+        # Publishers (created immediately)
         self.health_pub = self.create_publisher(
             Float32, '/sensor_fusion/health_score', 10)
         
@@ -111,24 +134,50 @@ class AdaptiveFusion(Node):
         self.body_imu_healthy_pub = self.create_publisher(
             Imu, '/sensor_fusion/body_imu_healthy', 10)
         
-        # Subscribers
+        # Lazy subscription tracking
+        self.subscriptions_created = False
+        self.camera_imu_sub = None
+        
+        # Create non-camera subscriptions immediately
         self.cmd_vel_sub = self.create_subscription(
             Twist, '/cmd_vel', self.cmd_vel_callback, 10)
         self.steering_sub = self.create_subscription(
             Float32, '/ugv/steering_angle', self.steering_callback, 10)
         self.vslam_odom_sub = self.create_subscription(
             Odometry, '/odom', self.vslam_odom_callback, 10)
-        self.camera_imu_sub = self.create_subscription(
-            Imu, '/camera/gyro_accel/sample', self.camera_imu_callback, 10)
         self.body_imu_sub = self.create_subscription(
-            Imu, '/ugv/imu', self.body_imu_callback, 10)
+            Imu, '/ugv/imu', self.body_imu_callback, self.reliable_qos)
+        
+        # Delayed subscription creation for camera topics
+        self.get_logger().info(f'Adaptive Fusion: waiting {self.startup_delay}s before subscribing to camera topics...')
+        self.startup_timer = self.create_timer(self.startup_delay, self._create_camera_subscriptions)
         
         # Health check timer
         self.health_timer = self.create_timer(0.1, self.health_check)  # 10Hz
         
-        self.get_logger().info('Adaptive Sensor Fusion node started')
+        self.get_logger().info('Adaptive Sensor Fusion node starting (lazy subscription mode)')
         self.get_logger().info(f'  Stationary threshold: {self.stationary_threshold} m/s')
         self.get_logger().info(f'  IMU variance threshold: {self.imu_variance_threshold} m/s²')
+
+    def _create_camera_subscriptions(self):
+        """Create camera topic subscriptions after delay."""
+        # Cancel the one-shot timer
+        self.startup_timer.cancel()
+        
+        if self.subscriptions_created:
+            return
+            
+        self.get_logger().info('Creating camera IMU subscription (BEST_EFFORT QoS)...')
+        
+        # Subscribe to camera IMU with BEST_EFFORT QoS to match camera driver
+        self.camera_imu_sub = self.create_subscription(
+            Imu, '/camera/gyro_accel/sample', 
+            self.camera_imu_callback, 
+            self.best_effort_qos
+        )
+        
+        self.subscriptions_created = True
+        self.get_logger().info('Adaptive Sensor Fusion fully initialized')
 
     def cmd_vel_callback(self, msg: Twist):
         """
@@ -315,9 +364,10 @@ class AdaptiveFusion(Node):
         # Log status periodically (every 5 seconds)
         if not hasattr(self, '_last_log') or self._seconds_since(self._last_log) > 5.0:
             self._last_log = now
+            cam_status = "pending" if not self.subscriptions_created else f"{self.camera_imu_health.score:.0f}%"
             self.get_logger().info(
                 f"Health: VSLAM={self.vslam_health.score:.0f}% "
-                f"CamIMU={self.camera_imu_health.score:.0f}% "
+                f"CamIMU={cam_status} "
                 f"BodyIMU={self.body_imu_health.score:.0f}% "
                 f"State={self.motion_state.name}"
             )

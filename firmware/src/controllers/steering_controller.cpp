@@ -413,14 +413,26 @@ bool SteeringController::isInSafeZone() const {
 void SteeringController::saveCalibration() {
   prefs_.begin("steering", false);
   prefs_.putBool("calibrated", true);
+  prefs_.putFloat("pulsesPerDeg", pulsesPerDegree_);
+  prefs_.putLong("softLimit", dynamicSoftLimit_);
   prefs_.end();
+  Serial.print("Calibration saved: pulsesPerDegree=");
+  Serial.print(pulsesPerDegree_);
+  Serial.print(", softLimit=");
+  Serial.println(dynamicSoftLimit_);
 }
 
 void SteeringController::loadCalibration() {
   prefs_.begin("steering", true);
   bool isCalibrated = prefs_.getBool("calibrated", false);
   if (isCalibrated) {
+    pulsesPerDegree_ = prefs_.getFloat("pulsesPerDeg", PULSES_PER_DEGREE);
+    dynamicSoftLimit_ = prefs_.getLong("softLimit", SOFT_LIMIT_PULSES);
     calibState_ = CALIBRATED;
+    Serial.print("Calibration loaded: pulsesPerDegree=");
+    Serial.print(pulsesPerDegree_);
+    Serial.print(", softLimit=");
+    Serial.println(dynamicSoftLimit_);
   }
   prefs_.end();
 }

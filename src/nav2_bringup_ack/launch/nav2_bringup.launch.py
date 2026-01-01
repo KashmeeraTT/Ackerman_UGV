@@ -27,7 +27,7 @@ def generate_launch_description():
         output='screen',
         parameters=[params_file],
         remappings=[
-            ('cmd_vel', 'cmd_vel_nav')  # Output to velocity smoother
+            ('cmd_vel', 'cmd_vel_nav_raw')  # Output to velocity smoother
         ]
     )
 
@@ -55,7 +55,7 @@ def generate_launch_description():
         output='screen',
         parameters=[params_file],
         remappings=[
-            ('cmd_vel', 'cmd_vel_nav'),           # Input from controller
+            ('cmd_vel', 'cmd_vel_nav_raw'),           # Input from controller
             ('cmd_vel_smoothed', 'cmd_vel_smoothed')  # Output to collision monitor
         ]
     )
@@ -69,7 +69,7 @@ def generate_launch_description():
         parameters=[params_file],
         remappings=[
             ('cmd_vel_in', 'cmd_vel_smoothed'),   # Input from velocity smoother
-            ('cmd_vel_out', 'cmd_vel')            # Final output to robot
+            ('cmd_vel_out', 'cmd_vel_nav')        # Output to steering feedback bridge
         ]
     )
 

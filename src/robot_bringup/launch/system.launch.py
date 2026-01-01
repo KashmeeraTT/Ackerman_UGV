@@ -153,6 +153,7 @@ def generate_launch_description():
 
     # Adaptive Sensor Fusion (health monitoring)
     # Monitors IMU reliability against expected motion state
+    # Uses lazy subscriptions - camera topics subscribed after 15s internal delay
     adaptive_fusion_node = Node(
         package='sensor_fusion',
         executable='adaptive_fusion.py',
@@ -161,14 +162,31 @@ def generate_launch_description():
         parameters=[{
             'stationary_threshold': 0.02,
             'imu_variance_threshold': 0.5,
-            'sensor_timeout': 0.5
+            'sensor_timeout': 0.5,
+            'startup_delay': 15.0  # Internal delay before camera subscription
         }]
     )
 
-    # Delay adaptive fusion startup by 10 seconds to let camera/VSLAM initialize
+    # Delay adaptive fusion startup by 10 seconds (plus 15s internal delay = 25s total)
     delayed_adaptive_fusion = TimerAction(
         period=10.0,  # Wait 10 seconds for camera topics to be available
         actions=[adaptive_fusion_node]
+    )
+
+    # Command Velocity Priority Mux
+    # Routes navigation commands through mux, with safety commands having priority
+    # Safety: health_monitor -> /cmd_vel_safety -> mux
+    # Nav: twist_to_ackermann -> /cmd_vel_nav_mux -> mux -> /cmd_vel
+    cmd_vel_mux_node = Node(
+        package='robot_bringup',
+        executable='cmd_vel_mux.py',
+        name='cmd_vel_mux',
+        output='screen',
+        parameters=[{
+            'safety_timeout': 1.0,
+            'nav_timeout': 0.5,
+            'output_rate': 20.0
+        }]
     )
 
     # Sensor Fusion Status GUI
@@ -188,7 +206,8 @@ def generate_launch_description():
         jsp_node,
         vslam_launch,
         delayed_ekf,              # EKF sensor fusion (8s delay)
-        delayed_adaptive_fusion,  # Sensor health monitoring (10s delay)
+        delayed_adaptive_fusion,  # Sensor health monitoring (10s launch + 15s internal delay)
+        cmd_vel_mux_node,         # Priority mux for cmd_vel (safety > nav)
         # status_gui_node,        # GUI - run manually: ros2 run sensor_fusion status_gui.py
         nav2_launch,
         ackermann_bridge_launch,

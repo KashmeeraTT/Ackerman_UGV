@@ -41,12 +41,12 @@ def generate_launch_description():
         # Static TF map -> odom (Identity fallback)
         # This provides a valid map->odom TF until SLAM Toolbox starts providing it.
         # Ensures Nav2 can activate without TF errors.
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_map_odom_tf',
-            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
-        ),
+        # Node(
+        #     package='tf2_ros',
+        #     executable='static_transform_publisher',
+        #     name='static_map_odom_tf',
+        #     arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+        # ),
 
         # ORB-SLAM3
         Node(

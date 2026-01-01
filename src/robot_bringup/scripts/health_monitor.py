@@ -17,7 +17,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import signal
 import sys
@@ -54,7 +54,9 @@ class HealthMonitor(Node):
             Odometry, '/odom', self.odom_callback, 10)
 
         # Publishers
-        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        # Safety commands go to mux (not directly to /cmd_vel)
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel_safety', 10)
+        self.safety_active_pub = self.create_publisher(Bool, '/cmd_vel_safety_active', 10)
         
         # Health status (simple string for easy monitoring)
         self.health_pub = self.create_publisher(String, '/robot/health', 10)
@@ -89,7 +91,11 @@ class HealthMonitor(Node):
         if not self.slam_healthy:
             self.slam_healthy = True
             self.safe_stop_triggered = False
-            self.get_logger().info('SLAM tracking restored')
+            # Release safety override
+            active_msg = Bool()
+            active_msg.data = False
+            self.safety_active_pub.publish(active_msg)
+            self.get_logger().info('SLAM tracking restored - safety override released')
 
     def health_check(self):
         """Periodic health check and diagnostics publishing."""
@@ -123,8 +129,13 @@ class HealthMonitor(Node):
         if self.safe_stop_triggered:
             return  # Already stopped
             
-        self.get_logger().warn('SAFE STOP triggered - sending zero velocity')
+        self.get_logger().warn('SAFE STOP triggered - sending zero velocity via priority mux')
         self.safe_stop_triggered = True
+        
+        # Signal safety override active
+        active_msg = Bool()
+        active_msg.data = True
+        self.safety_active_pub.publish(active_msg)
         
         # Send zero velocity command
         stop_cmd = Twist()
@@ -138,6 +149,7 @@ class HealthMonitor(Node):
         # Publish multiple times to ensure it's received
         for _ in range(5):
             self.cmd_vel_pub.publish(stop_cmd)
+            self.safety_active_pub.publish(active_msg)
 
     def _publish_health_status(self):
         """Publish simple health status message."""

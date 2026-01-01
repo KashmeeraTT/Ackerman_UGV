@@ -2,13 +2,12 @@ twist_to_ack:
   ros__parameters:
     wheelbase_m: 0.6      # Front to rear axle distance (meters)
     track_width_m: 1.16   # Distance between wheels on same axle (meters)
-    max_steer_deg: 8.0   # Maximum steering angle (degrees) - soft limit
+    max_steer_deg: 8.0    # Maximum steering angle (degrees) - soft limit
     max_speed_mps: 0.50
     max_accel_mps2: 0.60
     cmd_timeout_sec: 0.2
     v_epsilon_mps: 0.05
     allow_reverse: true
-    input_topic: "/cmd_vel"
-    output_topic: "/ackermann_cmd"
+    input_topic: "/cmd_vel_nav"   # From Nav2 (before collision monitor)
+    output_topic: "/cmd_vel_nav_mux"  # To priority mux (then to ESP32)
     frame_id: "base_link"
-

@@ -16,6 +16,7 @@ install(PROGRAMS
   scripts/smart_joint_publisher.py 
   scripts/scan_relay.py
   scripts/health_monitor.py
+  scripts/cmd_vel_mux.py
   test/test_system_integration.py
   DESTINATION lib/${PROJECT_NAME}
 )
