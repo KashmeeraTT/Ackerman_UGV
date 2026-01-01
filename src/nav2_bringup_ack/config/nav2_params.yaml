@@ -209,8 +209,8 @@ global_costmap:
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.50
-        cost_scaling_factor: 5.0
+        inflation_radius: 0.75              # Increased from 0.50 to exceed robot half-width (0.58m)
+        cost_scaling_factor: 4.0            # Slightly gentler falloff
 
 behavior_server:
   ros__parameters:
