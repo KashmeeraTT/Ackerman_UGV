@@ -64,6 +64,9 @@ ekf_filter_node:
     imu1_relative: false
     imu1_remove_gravitational_acceleration: true
     imu1_queue_size: 10
+    # Frame ID must match firmware (ros_bridge.cpp publishes with "imu_link")
+    # This should match the imu_link frame in the URDF
+    # Note: Timestamps are synchronized with ROS agent via rmw_uros_sync_session()
     
     # ==========================================================================
     # Process Noise Covariance (how much we trust the motion model)

@@ -20,8 +20,8 @@ def generate_launch_description():
                 'use_sim_time': LaunchConfiguration('use_sim_time'),
                 'target_frame': 'camera_link', 
                 'transform_tolerance': 0.5,     # Reduced from 1.0 for tighter sync
-                'min_height': -0.1,             # Slightly below ground to catch slopes
-                'max_height': 0.8,              # Reduced from 1.0 (focus on obstacles)
+                'min_height': -0.65,            # Scan from ~7cm above ground (camera at 72cm)
+                'max_height': 0.5,              # Scan up to ~1.22m high obstacles
                 'angle_min': -1.5708,           # -M_PI/2
                 'angle_max': 1.5708,            # M_PI/2
                 'angle_increment': 0.01745,     # π/180 = exactly 181 readings (fixes off-by-one warning)

@@ -15,7 +15,7 @@
 
 #define WHEELBASE_M 0.6f      // Front-to-rear axle distance (meters)
 #define TRACK_WIDTH_M 1.16f   // Left-to-right wheel distance (meters)
-#define MAX_VELOCITY_MPS 1.0f // Maximum linear velocity (m/s)
+#define MAX_VELOCITY_MPS 0.5f // Maximum linear velocity (m/s) - matches Nav2 limit
 #define MAX_ACCELERATION 0.5f // Max acceleration (m/s per update at 100Hz)
 
 // ============================================================================

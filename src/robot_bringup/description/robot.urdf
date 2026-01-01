@@ -35,10 +35,10 @@
     <!-- Main Body -->
     <visual>
       <geometry>
-        <box size="0.8 1.16 0.25"/> <!-- Length 0.8m (shorter than wheelbase overhang), Width 1.16m (track width) -->
+        <box size="0.8 1.16 0.42"/> <!-- Length 0.8m, Width 1.16m, Height 0.42m (72cm total - 15cm wheel - 15cm top section) -->
       </geometry>
       <material name="dark_grey"/>
-      <origin xyz="0 0 0.15"/>
+      <origin xyz="0 0 0.36"/>
     </visual>
     
     <!-- Top Deck / Plate -->
@@ -47,7 +47,7 @@
         <box size="0.6 1.0 0.02"/>
       </geometry>
       <material name="light_grey"/>
-      <origin xyz="0 0 0.28"/>
+      <origin xyz="0 0 0.56"/>
     </visual>
 
     <!-- Headlights (Front Left/Right) -->
@@ -88,29 +88,29 @@
         <cylinder length="1.0" radius="0.02"/> <!-- Crossbar -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.15 0 0.45" rpy="1.5707 0 0"/>
+      <origin xyz="-0.15 0 0.65" rpy="1.5707 0 0"/>
     </visual>
     <visual>
       <geometry>
-        <cylinder length="0.25" radius="0.02"/> <!-- Left Post -->
+        <cylinder length="0.15" radius="0.02"/> <!-- Left Post -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.15 0.5 0.35" rpy="0 0 0"/>
+      <origin xyz="-0.15 0.5 0.60" rpy="0 0 0"/>
     </visual>
     <visual>
       <geometry>
-        <cylinder length="0.25" radius="0.02"/> <!-- Right Post -->
+        <cylinder length="0.15" radius="0.02"/> <!-- Right Post -->
       </geometry>
       <material name="cyan"/>
-      <origin xyz="-0.15 -0.5 0.35" rpy="0 0 0"/>
+      <origin xyz="-0.15 -0.5 0.60" rpy="0 0 0"/>
     </visual>
 
     <!-- Collision (Simplified) -->
     <collision>
       <geometry>
-        <box size="0.8 1.16 0.3"/>
+        <box size="0.8 1.16 0.57"/>
       </geometry>
-      <origin xyz="0 0 0.15"/>
+      <origin xyz="0 0 0.43"/>
     </collision>
   </link>
 
@@ -280,8 +280,8 @@
   <joint name="base_to_camera" type="fixed">
     <parent link="base_link"/>
     <child link="camera_link"/>
-    <!-- Camera at front, level orientation -->
-    <origin xyz="0.45 0 0.325" rpy="0 0 0"/>
+    <!-- Camera at front top, 72cm from ground (0.57m from base_link which is at 15cm) -->
+    <origin xyz="0.45 0 0.57" rpy="0 0 0"/>
   </joint>
 
   <!-- Camera Optical Frames (ROS optical convention: Z forward, X right, Y down) -->
@@ -375,8 +375,8 @@
   <joint name="base_to_imu" type="fixed">
     <parent link="base_link"/>
     <child link="imu_link"/>
-    <!-- IMU mounted flat on chassis, near center -->
-    <origin xyz="0 0 0.29" rpy="0 0 0"/>
+    <!-- IMU mounted flat on chassis top deck, near center -->
+    <origin xyz="0 0 0.58" rpy="0 0 0"/>
   </joint>
 
 </robot>

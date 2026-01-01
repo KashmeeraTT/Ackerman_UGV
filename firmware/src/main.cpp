@@ -246,12 +246,13 @@ void loop() {
 
   unsigned long now = millis();
 
-  // Check ROS connection status (pings agent every 2 seconds)
+  // Check ROS connection status (pings agent every 5 seconds)
   ros.checkConnection();
 
-  // Spin ROS executor
+  // Spin ROS executor and sync time
   if (ros.isConnected()) {
     ros.spin();
+    ros.syncTime(); // Periodically sync time with ROS agent (every 10s)
   }
 
   // Main control loop (100 Hz)

@@ -13,6 +13,7 @@
 #include <rcl/rcl.h>
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
+#include <rmw_microros/rmw_microros.h> // For time sync
 #include <sensor_msgs/msg/imu.h>
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/float32.h>
@@ -72,6 +73,13 @@ public:
    */
   bool checkConnection();
 
+  /**
+   * @brief Synchronize time with ROS agent
+   * Call periodically to maintain time sync
+   * @return true if sync successful
+   */
+  bool syncTime();
+
 private:
   rcl_allocator_t allocator_;
   rclc_support_t support_;
@@ -95,9 +103,14 @@ private:
 
   char statusBuffer_[256];
   bool connected_;
+  bool timeSynced_;    // Whether time is synchronized with agent
+  int64_t timeOffset_; // Offset to convert ESP32 millis to ROS time (ns)
   unsigned long lastPingTime_;
+  unsigned long lastSyncTime_;
   static const unsigned long PING_INTERVAL_MS =
-      5000; // Check connection every 5 seconds
+      10000; // Check connection every 10 seconds (was 5s)
+  static const unsigned long SYNC_INTERVAL_MS =
+      10000; // Re-sync time every 10 seconds
 
   static CmdVelCallback userCallback_;
   static void cmdVelCallbackWrapper(const void *msg);

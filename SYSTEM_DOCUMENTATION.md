@@ -161,14 +161,13 @@ flowchart TB
 | Component | Model | Interface | Purpose |
 |-----------|-------|-----------|---------|
 | Compute | Jetson Xavier | - | Main computer |
-| Camera | Orbbec Gemini 2L | USB 3.0 | RGB-D vision |
+| Camera | Orbbec Gemini 2L | USB 3.0 | RGB-D vision + IMU |
 | MCU | ESP32 DevKit V1 | USB Serial | Motor control |
 | Steering Driver | BTS7960 | PWM | Steering motor |
 | Drive Driver | BTS7960 | PWM | Drive motor |
-| Steering Encoder | Rotary Encoder | GPIO | Position feedback (dynamic calibration) |
-| Wheel Encoders | Quadrature x2 | GPIO | Odometry |
-| IMU | GY-87 (MPU6050) | I2C | Orientation/acceleration |
-| Limit Switches | NO Switches x2 | GPIO | End stops |
+| Steering Encoder | Rotary Encoder | GPIO | Steering position feedback |
+| IMU | GY-87 (MPU6050) | I2C | Body orientation/acceleration |
+| Limit Switches | NO Switches x2 | GPIO | Steering end stops |
 | Display | SSD1306 OLED | I2C | Status display |
 
 ---
@@ -287,15 +286,19 @@ graph TB
 | Node | Subscribes | Publishes |
 |------|------------|-----------|
 | `camera_node` | - | `/camera/color/image_raw`, `/camera/depth/image_raw` |
-| `rgbd_node` | `/camera/*` | `/orbslam3/camera_pose` |
-| `slam_odom_bridge` | `/orbslam3/camera_pose` | `/odom`, TF: odom→base_link |
+| `rgbd_node` | `/camera/*` | `/orbslam3/pose` |
+| `slam_odom_bridge` | `/orbslam3/pose` | `/odom`, TF: odom→base_link |
 | `pointcloud_to_laserscan` | `/camera/depth/points` | `/scan` |
-| `ekf_filter_node` | `/odom`, `/ugv/imu` | `/odom_filtered` |
-| `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel_smoothed` |
-| `velocity_smoother` | `/cmd_vel_smoothed` | `/cmd_vel` |
-| `twist_to_ackermann` | `/cmd_vel`, `/ugv/steering_angle` | `/ackermann_cmd` |
-| `micro_ros_agent` | - | - (bridge to ESP32) |
-| `health_monitor` | `/orbslam3/camera_pose` | `/robot/health` |
+| `scan_relay` | `/scan` | `/scan_reliable` |
+| `ekf_filter_node` | `/odom`, `/camera/gyro_accel/sample`, `/ugv/imu` | `/odom_filtered` |
+| `controller_server` | `/scan`, `/odom`, `/plan` | `/cmd_vel_nav_raw` |
+| `velocity_smoother` | `/cmd_vel_nav_raw` | `/cmd_vel_smoothed` |
+| `collision_monitor` | `/cmd_vel_smoothed` | `/cmd_vel_nav` |
+| `twist_to_ackermann` | `/cmd_vel_nav`, `/ugv/steering_angle` | `/cmd_vel_nav_mux` |
+| `cmd_vel_mux` | `/cmd_vel_nav_mux`, `/cmd_vel_safety` | `/cmd_vel` |
+| `health_monitor` | `/odom` | `/cmd_vel_safety`, `/robot/health` |
+| `adaptive_fusion` | `/odom`, `/camera/gyro_accel/sample`, `/ugv/imu` | `/sensor_fusion/health_score` |
+| `micro_ros_agent` | `/cmd_vel` | - (bridge to ESP32) |
 
 ---
 
@@ -306,13 +309,14 @@ graph TB
 ```mermaid
 graph LR
     subgraph CamTopics[Camera Topics]
-        C1[color_image_raw]
-        C2[depth_image_raw]
-        C3[depth_points]
+        C1[color/image_raw]
+        C2[depth/image_raw]
+        C3[depth/points]
+        C4[gyro_accel/sample]
     end
     
     subgraph SLAMTopics[SLAM Topics]
-        S1[camera_pose]
+        S1[orbslam3/pose]
         S2[odom]
         S3[scan]
     end
@@ -320,17 +324,24 @@ graph LR
     subgraph NavTopics[Navigation Topics]
         N1[goal_pose]
         N2[plan]
-        N3[cmd_vel]
+        N3[cmd_vel_nav]
+    end
+    
+    subgraph MuxTopics[Priority Mux]
+        M1[cmd_vel_nav_mux]
+        M2[cmd_vel_safety]
+        M3[cmd_vel]
     end
     
     subgraph UGVTopics[UGV Topics]
-        U1[ackermann_cmd]
-        U2[steering_angle]
+        U1[ugv/steering_angle]
+        U2[ugv/imu]
     end
     
     CamTopics --> SLAMTopics
     SLAMTopics --> NavTopics
-    NavTopics --> UGVTopics
+    NavTopics --> MuxTopics
+    MuxTopics --> UGVTopics
 ```
 
 ### Topic Details
@@ -340,17 +351,25 @@ graph LR
 | `/camera/color/image_raw` | Image | 10 Hz | camera_node | rgbd_node | Color image |
 | `/camera/depth/image_raw` | Image | 10 Hz | camera_node | rgbd_node | Depth image |
 | `/camera/depth/points` | PointCloud2 | 10 Hz | camera_node | p2l_node | Point cloud |
-| `/orbslam3/camera_pose` | PoseStamped | 30 Hz | rgbd_node | slam_odom_bridge | SLAM pose |
+| `/camera/gyro_accel/sample` | Imu | 200 Hz | camera_node | EKF, adaptive_fusion | Camera IMU |
+| `/orbslam3/pose` | PoseStamped | 30 Hz | rgbd_node | slam_odom_bridge | SLAM pose |
 | `/odom` | Odometry | 20 Hz | slam_odom_bridge | Nav2, EKF | Robot odometry |
-| `/odom_filtered` | Odometry | 20 Hz | ekf_filter_node | - | Fused odometry |
-| `/scan` | LaserScan | 10 Hz | p2l_node | Nav2 | 2D laser scan |
-| `/cmd_vel` | Twist | 20 Hz | velocity_smoother | twist_to_ackermann | Velocity command |
-| `/ackermann_cmd` | AckermannDriveStamped | 20 Hz | twist_to_ackermann | micro_ros_agent | Ackermann command |
+| `/odom_filtered` | Odometry | 50 Hz | ekf_filter_node | - | Fused odometry |
+| `/scan` | LaserScan | 10 Hz | p2l_node | scan_relay | 2D laser (BestEffort) |
+| `/scan_reliable` | LaserScan | 10 Hz | scan_relay | Nav2, SLAM Toolbox | 2D laser (Reliable) |
+| `/cmd_vel_nav_raw` | Twist | 20 Hz | controller_server | velocity_smoother | Raw nav commands |
+| `/cmd_vel_smoothed` | Twist | 20 Hz | velocity_smoother | collision_monitor | Smoothed commands |
+| `/cmd_vel_nav` | Twist | 20 Hz | collision_monitor | twist_to_ackermann | Collision-filtered |
+| `/cmd_vel_nav_mux` | Twist | 20 Hz | twist_to_ackermann | cmd_vel_mux | Bridge output |
+| `/cmd_vel_safety` | Twist | - | health_monitor | cmd_vel_mux | Safety stop commands |
+| `/cmd_vel_safety_active` | Bool | - | health_monitor | cmd_vel_mux | Safety override flag |
+| `/cmd_vel` | Twist | 20 Hz | cmd_vel_mux | micro_ros_agent | Final to ESP32 |
 | `/ugv/status` | String | 5 Hz | ESP32 | - | Status string |
 | `/ugv/heartbeat` | Bool | 5 Hz | ESP32 | - | Heartbeat |
 | `/ugv/steering_angle` | Float32 | 20 Hz | ESP32 | twist_to_ackermann | Actual steering |
-| `/ugv/imu` | Imu | 50 Hz | ESP32 | ekf_filter_node | IMU data |
+| `/ugv/imu` | Imu | 50 Hz | ESP32 | ekf_filter_node | Body IMU data |
 | `/robot/health` | String | 1 Hz | health_monitor | - | System health |
+| `/sensor_fusion/health_score` | Float32 | 10 Hz | adaptive_fusion | - | Sensor health % |
 | `/goal_pose` | PoseStamped | - | User/RViz | bt_navigator | Navigation goal |
 
 ---
@@ -459,16 +478,21 @@ sequenceDiagram
 sequenceDiagram
     participant ORB as ORB-SLAM3
     participant HM as health_monitor
-    participant Ack as twist_to_ackermann
+    participant MUX as cmd_vel_mux
+    participant NAV as Navigation
     participant ESP as ESP32
     
     loop Monitor 1Hz
         HM->>HM: Check SLAM Tracking
         alt SLAM Lost
-            HM->>Ack: Stop Signal
-            Ack->>ESP: Zero Velocity
+            HM->>MUX: /cmd_vel_safety (zero)
+            HM->>MUX: /cmd_vel_safety_active (true)
+            MUX->>MUX: Block nav commands
+            MUX->>ESP: Zero Velocity
         else SLAM OK
-            HM->>HM: Continue
+            HM->>MUX: /cmd_vel_safety_active (false)
+            NAV->>MUX: /cmd_vel_nav_mux (nav command)
+            MUX->>ESP: Nav commands pass through
         end
     end
     
@@ -792,14 +816,14 @@ robot_footprint: [[-0.4, -0.58], [0.4, -0.58], [0.4, 0.58], [-0.4, 0.58]]
 | Driving RPWM | GPIO 14 |
 | Steering Encoder A | GPIO 34 |
 | Steering Encoder B | GPIO 35 |
-| Left Wheel Encoder A | GPIO 36 (VP) |
-| Left Wheel Encoder B | GPIO 39 (VN) |
-| Right Wheel Encoder A | GPIO 18 |
-| Right Wheel Encoder B | GPIO 19 |
 | Left Limit | GPIO 32 |
 | Right Limit | GPIO 33 |
 | I2C SDA | GPIO 21 |
 | I2C SCL | GPIO 22 |
+
+> [!NOTE]
+> Wheel encoders are NOT present on this robot. Odometry is provided entirely by Visual SLAM (ORB-SLAM3).
+> The steering encoder is used for closed-loop steering angle control only.
 
 ---
 

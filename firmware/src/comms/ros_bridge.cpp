@@ -7,7 +7,9 @@
 // Static callback pointer
 CmdVelCallback RosBridge::userCallback_ = nullptr;
 
-RosBridge::RosBridge() : connected_(false), lastPingTime_(0) {}
+RosBridge::RosBridge()
+    : connected_(false), timeSynced_(false), timeOffset_(0), lastPingTime_(0),
+      lastSyncTime_(0) {}
 
 void RosBridge::cmdVelCallbackWrapper(const void *msg) {
   const geometry_msgs__msg__Twist *twist =
@@ -110,6 +112,10 @@ bool RosBridge::begin(CmdVelCallback callback) {
   imuMsg_.linear_acceleration_covariance[8] = 0.01;
 
   connected_ = true;
+
+  // Initial time synchronization
+  syncTime();
+
   return true;
 }
 
@@ -133,8 +139,9 @@ bool RosBridge::checkConnection() {
   }
   lastPingTime_ = now;
 
-  // Quick ping with very short timeout (10ms, 1 attempt)
-  if (rmw_uros_ping_agent(10, 1) != RMW_RET_OK) {
+  // Ping with tolerant timeout (100ms, 3 attempts)
+  // Increased from 10ms/1 attempt to prevent false disconnects under load
+  if (rmw_uros_ping_agent(100, 3) != RMW_RET_OK) {
     if (connected_) {
       connected_ = false;
       Serial.println("micro-ROS agent disconnected!");
@@ -187,9 +194,19 @@ void RosBridge::publishImu(float qw, float qx, float qy, float qz, float gyroX,
   if (!connected_)
     return;
 
-  unsigned long now = millis();
-  imuMsg_.header.stamp.sec = now / 1000;
-  imuMsg_.header.stamp.nanosec = (now % 1000) * 1000000;
+  // Use synchronized ROS time if available, fallback to ESP32 millis
+  if (timeSynced_) {
+    // Get synchronized time from micro-ROS agent
+    int64_t nanoseconds = rmw_uros_epoch_nanos();
+    imuMsg_.header.stamp.sec = static_cast<int32_t>(nanoseconds / 1000000000LL);
+    imuMsg_.header.stamp.nanosec =
+        static_cast<uint32_t>(nanoseconds % 1000000000LL);
+  } else {
+    // Fallback to ESP32 uptime (not synchronized)
+    unsigned long now = millis();
+    imuMsg_.header.stamp.sec = now / 1000;
+    imuMsg_.header.stamp.nanosec = (now % 1000) * 1000000;
+  }
 
   imuMsg_.orientation.w = qw;
   imuMsg_.orientation.x = qx;
@@ -214,4 +231,33 @@ void RosBridge::publishStatus(const char *status) {
   statusBuffer_[sizeof(statusBuffer_) - 1] = '\0';
   statusMsg_.data.size = strlen(statusBuffer_);
   rcl_publish(&statusPub_, &statusMsg_, NULL);
+}
+
+bool RosBridge::syncTime() {
+  if (!connected_)
+    return false;
+
+  unsigned long now = millis();
+
+  // Only sync periodically
+  if (timeSynced_ && (now - lastSyncTime_ < SYNC_INTERVAL_MS)) {
+    return true;
+  }
+
+  // Synchronize time with micro-ROS agent
+  // This uses NTP-like protocol to sync ESP32 time with the agent
+  // Timeout: 1000ms, Retries: 5
+  if (rmw_uros_sync_session(1000) == RMW_RET_OK) {
+    timeSynced_ = true;
+    lastSyncTime_ = now;
+    Serial.println("Time synchronized with ROS agent");
+    return true;
+  }
+
+  // Sync failed, but don't mark as not synced if we were previously synced
+  // (allows graceful degradation)
+  if (!timeSynced_) {
+    Serial.println("Time sync failed - using ESP32 uptime for timestamps");
+  }
+  return false;
 }
